@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "473819721520",
+    "project_id": "kelpet-8834d",
+    "storage_bucket": "kelpet-8834d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:473819721520:android:fc0da7b8b444159849a2f5",
+        "android_client_info": {
+          "package_name": "com.example.kelpet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDUpeKLUwVzSj6qO5_XPaxhqD1Pmr9rW8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

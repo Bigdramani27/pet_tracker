@@ -1,0 +1,28 @@
+import 'package:flutter/material.dart';
+
+const Color primary = Colors.white;
+const Color secondary = Color(0xFF1F252E);
+const Color thirdly = Colors.red;
+const Color background = Color(0XFFF9F7F6);
+const Color active = Colors.grey;
+const Color border = Color(0xFFF7F7F8);
+const Color tab = Colors.black;
+const Color activeTab = Color(0XFFFFD08E);
+const Color circle = Color(0XFF697D9B);
+const Color darkblue = Color(0xFF313B49);
+const Color profile = Color(0XFFE5E8EE);
+const Color name = Color(0XFF313B49);
+const Color shadow = Color(0xfff9f7f6);
+const Color jpg = Color(0XFF1E4A9B);
+const Color login = Color(0XFF599CFF);
+const Color blue = Color(0XFF1E4A9B);
+const Color navactive = Color(0XFF435165);
+const Color darkfacebook = Color(0XFF193154);
+const Color sorting = Color(0XFF8991A6);
+const Color red = Color(0XFFD72E23);
+const Color line = Color(0XFFEA8800);
+const Color snackbar = Color(0xFFD1ECDD);
+const Color notification = Color(0XFF12703A);
+const Color spot_red = Color(0XFFF2D6D3);
+const Color green = Colors.green;
+const Color low_blue = Color(0XFFEEf1f6);
