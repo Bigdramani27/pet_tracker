@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -23,14 +24,18 @@ class _PetLocationState extends State<PetLocation> {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey();
   late GoogleMapController mapController;
   var user = FirebaseAuth.instance.currentUser!.uid;
+  late Stream<QuerySnapshot<Map<String, dynamic>>> pet;
+  @override
+  void initState() {
+    super.initState();
+    pet = FirebaseFirestore.instance.collection("pet_table").snapshots();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         key: scaffoldKey,
-        appBar: ResponsiveWidget.isSmallScreen(context)
-            ? topNavigationBar(context, scaffoldKey, 'Pet Location')
-            : null,
+        appBar: ResponsiveWidget.isSmallScreen(context) ? topNavigationBar(context, scaffoldKey, 'Pet Location') : null,
         drawer: const BigNav(currentPage: 'pet_location'),
         body: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,16 +43,12 @@ class _PetLocationState extends State<PetLocation> {
             if (ResponsiveWidget.isLargeScreen(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isLargeScreen(context)
-                    ? const BigNav(currentPage: 'pet_location')
-                    : null,
+                child: ResponsiveWidget.isLargeScreen(context) ? const BigNav(currentPage: 'pet_location') : null,
               )),
-            if (ResponsiveWidget.isMediumScreen(context))
+            if (ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isMediumScreen(context)
-                    ? const SmallNav(currentPage: 'pet_location')
-                    : null,
+                child: ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context) ? const SmallNav(currentPage: 'pet_location') : null,
               )),
             if (ResponsiveWidget.isSmallScreen(context)) Container(),
             Expanded(
@@ -55,14 +56,11 @@ class _PetLocationState extends State<PetLocation> {
                 child: SingleChildScrollView(
                   child: Container(
                       margin: ResponsiveWidget.isLargeScreen(context)
-                          ? const EdgeInsets.symmetric(
-                              vertical: 50, horizontal: 120)
-                          : ResponsiveWidget.isMediumScreen(context)
-                              ? const EdgeInsets.symmetric(
-                                  vertical: 50, horizontal: 100)
+                          ? const EdgeInsets.symmetric(vertical: 50, horizontal: 120)
+                          : ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context)
+                              ? const EdgeInsets.symmetric(vertical: 50, horizontal: 100)
                               : ResponsiveWidget.isSmallScreen(context)
-                                  ? const EdgeInsets.symmetric(
-                                      vertical: 20, horizontal: 20)
+                                  ? const EdgeInsets.symmetric(vertical: 20, horizontal: 20)
                                   : null,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -81,26 +79,22 @@ class _PetLocationState extends State<PetLocation> {
                           ),
                           const Text(
                             "Welcome to the Pet Location Dashboard",
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 18),
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: tab),
                           ),
                           const SizedBox(height: 20),
                           RichText(
                             text: const TextSpan(
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w500, fontSize: 16),
+                              style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16, color: tab),
                               text: 'This red ',
                               children: <TextSpan>[
                                 TextSpan(
                                     text: '\"Icon\"',
                                     style: TextStyle(
-                                        color: red,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 16)),
-                                TextSpan(
-                                    text:
-                                        ' will tell you the location of your pet.',
-                                    style: TextStyle(fontSize: 16)),
+                                      color: red,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                    )),
+                                TextSpan(text: ' will tell you the location of your pet.', style: TextStyle(fontSize: 16)),
                               ],
                             ),
                           ),
@@ -108,26 +102,17 @@ class _PetLocationState extends State<PetLocation> {
                             height: 10,
                           ),
                           StreamBuilder(
-                            stream: FirebaseFirestore.instance
-                                .collection("pet_table")
-                                .snapshots(),
+                            stream: pet,
                             builder: ((context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return Center(
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return const Center(
                                   child: CircularProgressIndicator(
                                     color: secondary,
                                   ),
                                 );
                               }
                               var pets = snapshot.data!.docs.map((item) {
-                                return {
-                                  'name': item['name'],
-                                  'long': item['long'],
-                                  'lat': item['lat'],
-                                  'user': item['user'],
-                                  'id': item.id
-                                };
+                                return {'name': item['name'], 'long': item['long'], 'lat': item['lat'], 'user': item['user'], 'id': item.id};
                               }).toList();
 
                               var pet = pets.where((item) {
@@ -137,12 +122,10 @@ class _PetLocationState extends State<PetLocation> {
                               if (pet.isEmpty) {
                                 return Container(
                                   width: MediaQuery.of(context).size.width,
-                                  height:
-                                      MediaQuery.of(context).size.height - 200,
-                                  child: Column(
+                                  height: MediaQuery.of(context).size.height - 200,
+                                  child: const Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
                                       Text(
                                         "No Pet has been added yet",
@@ -165,21 +148,43 @@ class _PetLocationState extends State<PetLocation> {
                               });
                               final initial = pet.first;
                               CameraPosition initialPosition = CameraPosition(
-                                target: LatLng(
-                                    initial['long'], initial['lat']),
+                                target: LatLng(initial['long'], initial['lat']),
                                 zoom: 13,
                               );
 
-                              return Container(
-                                height: 500,
-                                child: GoogleMap(
-                                  onMapCreated:
-                                      (GoogleMapController controller) {
-                                    mapController = controller;
-                                  },
-                                  initialCameraPosition: initialPosition,
-                                  markers: all,
-                                ),
+                              return Column(
+                                children: [
+                                  Container(
+                                    height: 500,
+                                    child: GoogleMap(
+                                      onMapCreated: (GoogleMapController controller) {
+                                        mapController = controller;
+                                      },
+                                      initialCameraPosition: initialPosition,
+                                      markers: all,
+                                    ),
+                                  ),
+                                  ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: pet.length,
+                                    itemBuilder: (context, index) {
+                                      return ListTile(
+                                        title: Text(pet[index]['name']),
+                                        titleTextStyle: TextStyle(color: tab, fontWeight: FontWeight.w600, fontSize: 18),
+                                        subtitle: Text("Click here to go to this location"),
+                                        onTap: () {
+                                          var selectedPet = pet[index];
+                                          mapController.animateCamera(
+                                            CameraUpdate.newLatLngZoom(
+                                              LatLng(selectedPet['long'], selectedPet['lat']),
+                                              13.0,
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ],
                               );
                             }),
                           ),

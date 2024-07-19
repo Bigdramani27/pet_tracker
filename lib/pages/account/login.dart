@@ -82,13 +82,18 @@ class _LoginState extends State<Login> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Center(
-                        child: Text(
-                          'KelPet',
-                          style: TextStyle(
-                              fontSize: 40,
-                              fontWeight: FontWeight.w700,
-                              color: primary),
+                       Center(
+                        child: Row(
+                          children: [
+                            Image.asset("images/dash.png", width: 100, height: 100,),
+                            Text(
+                              'KelPet',
+                              style: TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.w700,
+                                  color: primary),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 40),
@@ -291,8 +296,8 @@ class _LoginState extends State<Login> {
                                       behavior: SnackBarBehavior.floating,
                                       margin: EdgeInsets.only(
                                         bottom:
-                                            MediaQuery.of(context).size.height -
-                                                100,
+                                            !ResponsiveWidget.isSmallScreen(context) ? MediaQuery.of(context).size.height -
+                                                100: 500,
                                         left: !ResponsiveWidget.isSmallScreen(
                                                 context)
                                             ? 300

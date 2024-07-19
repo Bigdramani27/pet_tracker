@@ -32,7 +32,7 @@ class _BigNavState extends State<BigNav> {
         children: [
           Row(
             children: [
-              Image.asset('images/logo.png', width: 40, height: 40),
+              Image.asset('images/dash.png', width: 50, height: 50),
               const Text(
                 'KelPet Dashboard',
                 style: TextStyle(

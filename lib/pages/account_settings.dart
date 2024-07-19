@@ -47,14 +47,14 @@ class _AccountSettingsState extends State<AccountSettings>
             if (ResponsiveWidget.isLargeScreen(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isLargeScreen(context)
+                child: ResponsiveWidget.isLargeScreen(context) 
                     ? const BigNav(currentPage: 'account_settings')
                     : null,
               )),
-            if (ResponsiveWidget.isMediumScreen(context))
+            if (ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isMediumScreen(context)
+                child: ResponsiveWidget.isMediumScreen(context)|| ResponsiveWidget.isCustomSize(context)
                     ? const SmallNav(currentPage: 'account_settings')
                     : null,
               )),
@@ -65,7 +65,7 @@ class _AccountSettingsState extends State<AccountSettings>
                     margin: ResponsiveWidget.isLargeScreen(context)
                         ? const EdgeInsets.symmetric(
                             vertical: 50, horizontal: 150)
-                        : ResponsiveWidget.isMediumScreen(context)
+                        : ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context)
                             ? const EdgeInsets.symmetric(
                                 vertical: 50, horizontal: 120)
                             : ResponsiveWidget.isSmallScreen(context)

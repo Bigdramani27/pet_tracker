@@ -408,8 +408,9 @@ class _RegisterState extends State<Register> {
                                                 )),
                                             backgroundColor: spot_red,
                                             behavior: SnackBarBehavior.floating,
-                                            margin: const EdgeInsets.only(
-                                                bottom: 540,
+                                            margin: EdgeInsets.only(
+                                                bottom:  MediaQuery.of(context).size.height -
+                                                 500,
                                                 right: 30,
                                                 left: 30),
                                             action: SnackBarAction(
@@ -488,8 +489,9 @@ class _RegisterState extends State<Register> {
                                                 )),
                                             backgroundColor: snackbar,
                                             behavior: SnackBarBehavior.floating,
-                                            margin: const EdgeInsets.only(
-                                                bottom: 540,
+                                            margin:  EdgeInsets.only(
+                                                bottom: MediaQuery.of(context).size.height -
+                                                 500,
                                                 right: 30,
                                                 left: 30),
                                             action: SnackBarAction(
@@ -548,8 +550,9 @@ class _RegisterState extends State<Register> {
                                                 )),
                                             backgroundColor: spot_red,
                                             behavior: SnackBarBehavior.floating,
-                                            margin: const EdgeInsets.only(
-                                                bottom: 540,
+                                            margin: EdgeInsets.only(
+                                                bottom:MediaQuery.of(context).size.height -
+                                                 500,
                                                 left: 50,
                                                 right: 50),
                                             action: SnackBarAction(

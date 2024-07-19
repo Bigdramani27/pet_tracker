@@ -1,26 +1,4 @@
 {
-  "flutter": {
-    "platforms": {
-      "android": {
-        "default": {
-          "projectId": "kelpet-8834d",
-          "appId": "1:473819721520:android:fc0da7b8b444159849a2f5",
-          "fileOutput": "android/app/google-services.json"
-        }
-      },
-      "dart": {
-        "lib/firebase_options.dart": {
-          "projectId": "kelpet-8834d",
-          "configurations": {
-            "android": "1:473819721520:android:fc0da7b8b444159849a2f5",
-            "ios": "1:473819721520:ios:a43038bf5dd3599f49a2f5",
-            "macos": "1:473819721520:ios:a43038bf5dd3599f49a2f5",
-            "web": "1:473819721520:web:42b18579d59f760f49a2f5"
-          }
-        }
-      }
-    }
-  },
   "hosting": {
     "public": "build/web",
     "ignore": [

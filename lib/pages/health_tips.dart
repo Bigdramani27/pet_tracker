@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -15,9 +17,7 @@ class HealthTips extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
         key: scaffoldKey,
-        appBar: ResponsiveWidget.isSmallScreen(context)
-            ? topNavigationBar(context, scaffoldKey, 'Health Tips')
-            : null,
+        appBar: ResponsiveWidget.isSmallScreen(context) ? topNavigationBar(context, scaffoldKey, 'Health Tips') : null,
         drawer: const BigNav(currentPage: 'health_tips'),
         body: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -25,16 +25,12 @@ class HealthTips extends StatelessWidget {
             if (ResponsiveWidget.isLargeScreen(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isLargeScreen(context)
-                    ? const BigNav(currentPage: 'health_tips')
-                    : null,
+                child: ResponsiveWidget.isLargeScreen(context) ? const BigNav(currentPage: 'health_tips') : null,
               )),
-            if (ResponsiveWidget.isMediumScreen(context))
+            if (ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isMediumScreen(context)
-                    ? const SmallNav(currentPage: 'add_pet')
-                    : null,
+                child: ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context) ? const SmallNav(currentPage: 'health_tips') : null,
               )),
             if (ResponsiveWidget.isSmallScreen(context)) Container(),
             Expanded(
@@ -42,14 +38,11 @@ class HealthTips extends StatelessWidget {
                 child: SingleChildScrollView(
                   child: Container(
                       margin: ResponsiveWidget.isLargeScreen(context)
-                          ? const EdgeInsets.symmetric(
-                              vertical: 50, horizontal: 120)
-                          : ResponsiveWidget.isMediumScreen(context)
-                              ? const EdgeInsets.symmetric(
-                                  vertical: 50, horizontal: 100)
+                          ? const EdgeInsets.symmetric(vertical: 50, horizontal: 120)
+                          : ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context)
+                              ? const EdgeInsets.symmetric(vertical: 50, horizontal: 100)
                               : ResponsiveWidget.isSmallScreen(context)
-                                  ? const EdgeInsets.symmetric(
-                                      vertical: 20, horizontal: 20)
+                                  ? const EdgeInsets.symmetric(vertical: 20, horizontal: 20)
                                   : null,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -68,8 +61,7 @@ class HealthTips extends StatelessWidget {
                           ),
                           const Text(
                             "Welcome to the Health Tips Board",
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 18),
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
                           ),
                           const SizedBox(height: 20),
                           const Text(
@@ -79,83 +71,74 @@ class HealthTips extends StatelessWidget {
                           const SizedBox(
                             height: 10,
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            width: MediaQuery.of(context).size.width,
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                color: primary,
-                                boxShadow: [
-                                  const BoxShadow(
-                                    color: active,
-                                    offset: Offset(
-                                      1.0,
-                                      1.0,
+                          StreamBuilder(
+                              stream: FirebaseFirestore.instance.collection("health_tips").snapshots(),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(
+                                      color: secondary,
                                     ),
-                                    blurRadius: 10.0,
-                                  ),
-                                ]),
-                            child:  const Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: EdgeInsets.all(8.0),
-                                  child: const Row(
-                                    children: [
-                                      FaIcon(FontAwesomeIcons.lightbulb, color: Colors.amber,), SizedBox(width: 10,),
-                                      Expanded(child: Text("How is Jacinta like in person? ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600 ),)),
-                                    ],
-                                  ),
-                                ),
-                                Divider(thickness: 2,),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric( horizontal: 32),
-                                  child: Text("She is sweet but sometimes, we leave it to God to help us"),
-                                )
-                              ],
-                            ),
-                          ),
-                           const SizedBox(
-                            height: 10,
-                          ),
-                             Container(
-                               padding: const EdgeInsets.symmetric(vertical: 10),
-                            width: MediaQuery.of(context).size.width,
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                color: primary,
-                                boxShadow: [
-                                  const BoxShadow(
-                                    color: active,
-                                    offset: Offset(
-                                      1.0,
-                                      1.0,
-                                    ),
-                                    blurRadius: 10.0,
-                                  ),
-                                ]),
-                            child:  const Column(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: EdgeInsets.all(8.0),
-                                  child: Row(
-                                    children: [
-                                      FaIcon(FontAwesomeIcons.lightbulb, color: Colors.amber,), SizedBox(width: 10,),
-                                      Expanded(child: Text("Why does Jacinta get angry and annoying? ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600 ),)),
-                                    ],
-                                  ),
-                                ),
-                                Divider(thickness: 2,),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 32),
-                                  child: Text("She doesn't communicate well and expect her boyfriend to know what is going well"),
-                                )
-                              ],
-                            ),
-                          ),
+                                  );
+                                }
+                                var tips = snapshot.data!.docs.map((item) {
+                                  return {
+                                    "title": item['title'],
+                                    "answer": item['answer'],
+                                  };
+                                }).toList();
+                                return Column(
+                                  children: tips.map((data) {
+                                    return Container(
+                                      margin: EdgeInsets.only(bottom: 15),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      width: MediaQuery.of(context).size.width,
+                                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: primary, boxShadow: [
+                                        const BoxShadow(
+                                          color: active,
+                                          offset: Offset(
+                                            1.0,
+                                            1.0,
+                                          ),
+                                          blurRadius: 10.0,
+                                        ),
+                                      ]),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: EdgeInsets.all(8.0),
+                                            child: Row(
+                                              children: [
+                                                FaIcon(
+                                                  FontAwesomeIcons.lightbulb,
+                                                  color: Colors.amber,
+                                                ),
+                                                SizedBox(
+                                                  width: 10,
+                                                ),
+                                                Expanded(
+                                                    child: Text(
+                                                  data['title'],
+                                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                                )),
+                                              ],
+                                            ),
+                                          ),
+                                          Divider(
+                                            thickness: 2,
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                                            child: Text(data['answer']),
+                                          )
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                );
+                              }),
                         ],
                       )),
                 )),

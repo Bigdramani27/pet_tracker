@@ -20,7 +20,7 @@ class MapOfVeterinarian extends StatefulWidget {
 class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey();
   late GoogleMapsPlaces places;
-  late GoogleMapController mapController;
+   GoogleMapController? mapController;
   Set<Marker> markers = {};
   Marker? userLocationMarker;
 
@@ -30,10 +30,11 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
     String? baseUrl;
 
     baseUrl =
-        'https://cors-anywhere.herokuapp.com/https://maps.googleapis.com/maps/api';
+         'https://cors-anywhere.herokuapp.com/https://maps.googleapis.com/maps/api';
 
-    places = GoogleMapsPlaces(
-        apiKey: 'AIzaSyB_xLxnQ-NXFZ_nZnwtvbmshp6Aif1V75o', baseUrl: baseUrl);
+    places = kIsWeb ? GoogleMapsPlaces(
+        apiKey: 'AIzaSyB_xLxnQ-NXFZ_nZnwtvbmshp6Aif1V75o', baseUrl: baseUrl) : GoogleMapsPlaces(
+        apiKey: 'AIzaSyB_xLxnQ-NXFZ_nZnwtvbmshp6Aif1V75o');
     _initMap();
   }
 
@@ -74,12 +75,27 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
   Future<void> _showLocationPermissionDialog() async {
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => kIsWeb ? AlertDialog(
         title: const Text('Location Permission Required'),
         content: Container(
           width: 600,
           child: const Text(
               "If you're on a laptop, click the location icon on the right side of your search field, then choose 'Always Allow' and refresh the page. If you're on mobile, tap the icon on the left side of the search field, go to 'Permissions', and toggle on location."),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Ok'),
+          ),
+        ],
+      ) : AlertDialog(
+        title: const Text('Location Permission Required'),
+        content: Container(
+          width: 600,
+          child: const Text(
+              "To continue, kindly close the app and reopen it and allow the device to use your location"),
         ),
         actions: <Widget>[
           TextButton(
@@ -98,19 +114,25 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
         desiredAccuracy: LocationAccuracy.high);
 
     // Update the camera position to the current location
-    mapController.animateCamera(CameraUpdate.newLatLng(
+    mapController?.animateCamera(CameraUpdate.newLatLng(
       LatLng(position.latitude, position.longitude),
     ));
 
-    // Add a marker for the user's current location
-    final userIcon = await _getBitmapDescriptorFromAsset('images/ping.png',
-        size: const Size(24, 24));
+ BitmapDescriptor markerIcon;
+    if (kIsWeb) {
+      // Load custom image for web
+      markerIcon = await _getBitmapDescriptorFromAsset('images/ping.png',
+          size: const Size(24, 24));
+    } else {
+      // Use default marker color for mobile
+      markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+    }
     setState(() {
       userLocationMarker = Marker(
         markerId: const MarkerId('user_location'),
         position: LatLng(position.latitude, position.longitude),
         infoWindow: const InfoWindow(title: 'My Location'),
-        icon: userIcon,
+        icon: markerIcon,
       );
       markers.add(userLocationMarker!);
     });
@@ -132,7 +154,7 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
   Future<void> _getNearbyPlaces(double lat, double lng) async {
     PlacesSearchResponse response = await places.searchNearbyWithRadius(
       Location(lat: lat, lng: lng),
-      1500,
+      5000,
       type: 'veterinary_care',
     );
 
@@ -195,10 +217,10 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                     ? const BigNav(currentPage: 'veterinarian')
                     : null,
               )),
-            if (ResponsiveWidget.isMediumScreen(context))
+            if (ResponsiveWidget.isMediumScreen(context)|| ResponsiveWidget.isCustomSize(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isMediumScreen(context)
+                child: ResponsiveWidget.isMediumScreen(context)|| ResponsiveWidget.isCustomSize(context)
                     ? const SmallNav(currentPage: 'veterinarian')
                     : null,
               )),
@@ -210,7 +232,7 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                       margin: ResponsiveWidget.isLargeScreen(context)
                           ? const EdgeInsets.symmetric(
                               vertical: 50, horizontal: 120)
-                          : ResponsiveWidget.isMediumScreen(context)
+                          : ResponsiveWidget.isMediumScreen(context)|| ResponsiveWidget.isCustomSize(context)
                               ? const EdgeInsets.symmetric(
                                   vertical: 50, horizontal: 100)
                               : ResponsiveWidget.isSmallScreen(context)
@@ -241,7 +263,7 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                           RichText(
                             text: const TextSpan(
                               style: TextStyle(
-                                  fontWeight: FontWeight.w500, fontSize: 16),
+                                  fontWeight: FontWeight.w500, fontSize: 16, color: tab),
                               text: 'The following ',
                               children: <TextSpan>[
                                 TextSpan(
@@ -261,7 +283,7 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                           ),
                           const Row(
                             children: [
-                              Icon(Icons.location_on),
+                              kIsWeb ? Icon(Icons.location_on) : Icon(Icons.location_on, color: green,),
                               Text("This Icon shows your location")
                             ],
                           ),
@@ -270,13 +292,13 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                           ),
                           Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.location_on,
                                 color: thirdly,
                               ),
                               Container(
-                                constraints: BoxConstraints(maxWidth: 280),
-                                child: Text(
+                                constraints: const BoxConstraints(maxWidth: 280),
+                                child: const Text(
                                   maxLines: 2,
                                   "This Icon shows the number of Veterinarian around you",
                                   overflow: TextOverflow.ellipsis,
@@ -290,16 +312,16 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                           Row(
                             children: [
                               Container(
-                                color: Color.fromARGB(255, 78, 198, 253),
+                                color: const Color.fromARGB(255, 78, 198, 253),
                                 width: 20,
                                 height: 20,
                               ),
-                              SizedBox(
+                              const SizedBox(
                                 width: 5,
                               ),
                               Container(
-                                constraints: BoxConstraints(maxWidth: 280),
-                                child: Text(
+                                constraints: const BoxConstraints(maxWidth: 280),
+                                child: const Text(
                                   maxLines: 2,
                                   "if you see a big blue box kindly wait map is loading ",
                                   overflow: TextOverflow.ellipsis,
@@ -312,8 +334,7 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                           ),
                           Container(
                             height: 500,
-                            child: (kIsWeb)
-                                ? GoogleMap(
+                            child: GoogleMap(
                                     initialCameraPosition: const CameraPosition(
                                       target: LatLng(0,
                                           0), // Placeholder, will be updated to current location
@@ -327,7 +348,7 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                                     },
                                     markers: markers,
                                   )
-                                : null,
+                               ,
                           ),
                         ],
                       )),

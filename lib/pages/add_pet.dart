@@ -3,14 +3,11 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:go_router/go_router.dart';
 import 'package:kelpet/widgets/form_dropdown.dart';
 
 import '../helpers/responsiveness.dart';
 import '../navigator/big_nav.dart';
 import '../navigator/small_nav.dart';
-import '../pages/dashboard.dart';
 import '../widgets/top_layout_mobile.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -29,6 +26,7 @@ class _AddNewPetState extends State<AddNewPet> {
   final petAgeController = TextEditingController();
   final petBreedController = TextEditingController();
   final petGenderController = TextEditingController();
+  final petSerialController = TextEditingController();
   var position = ['Cat', 'Dog'];
   String selectedPosition = 'Cat';
   bool uploading = false;
@@ -36,34 +34,10 @@ class _AddNewPetState extends State<AddNewPet> {
   var user = FirebaseAuth.instance.currentUser!.uid;
   final formKey = GlobalKey<FormState>();
 
-  Future<void> getImage() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        type: FileType.custom,
-        allowedExtensions: ['jpeg', 'jpg', 'png'],
-      );
-
-      if (result != null) {
-        setState(() {
-          pickedFile = result.files.first;
-        });
-      } else {
-        return;
-      }
-    } catch (e) {
-      print("Error: $e");
-    }
-  }
-
   int number = 0;
   Future<bool> fetchNumber() async {
     try {
-      QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore
-          .instance
-          .collection("pet_table")
-          .where("user", isEqualTo: user)
-          .get();
+      QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection("pet_table").where("user", isEqualTo: user).get();
 
       // Count the number of documents in the snapshot
       number = snapshot.size;
@@ -75,6 +49,18 @@ class _AddNewPetState extends State<AddNewPet> {
     }
   }
 
+  final currentUser = FirebaseAuth.instance.currentUser!.uid;
+  List<String> serialNumber = [];
+  Future<List<String>> getSerial() async {
+    QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection("pet_table").where("user", isEqualTo: currentUser).get();
+    List<String> rulers = [];
+    snapshot.docs.forEach((doc) {
+      rulers.add(doc['serial_number']);
+    });
+    serialNumber = rulers;
+    return rulers;
+  }
+
   @override
   void initState() {
     // TODO: implement initState
@@ -82,67 +68,14 @@ class _AddNewPetState extends State<AddNewPet> {
     fetchNumber().then((success) {
       setState(() {});
     });
-  }
-
-  Future<void> dataDisplay() async {
-    Reference ref =
-        await FirebaseStorage.instance.ref().child('PET/${pickedFile!.name}');
-
-    final metadata = SettableMetadata(contentType: "image/jpeg");
-
-    UploadTask uploadTask = ref.putData(pickedFile!.bytes!, metadata);
-    TaskSnapshot snapshot = await uploadTask;
-
-    String downloadUrl = await snapshot.ref.getDownloadURL();
-    await FirebaseFirestore.instance.collection('pet_table').doc().set({
-      'image': downloadUrl,
-      'image_name': pickedFile!.name,
-      'name': petNameController.text,
-      'age': petAgeController.text,
-      'breed': petBreedController.text,
-      'gender': petGenderController.text,
-      'type': selectedPosition,
-      'date': FieldValue.serverTimestamp(),
-      'user': user,
-      'long': number == 0
-          ? 5.760542060690686
-          : number == 1
-              ? 5.76036767208318
-              : number >= 2
-                  ? 5.760282274802908
-                  : null,
-      'lat': number == 0
-          ? -0.21992320329155166
-          : number == 1
-              ? -0.21964030686779001
-              : number >= 2
-                  ? -0.22006946030168506
-                  : null,
-    });
-  }
-
-  Future<void> uploadImage() async {
-    if (pickedFile == null) {
-      return;
-    }
-    setState(() {
-      uploading = true;
-    });
-    await dataDisplay();
-
-    setState(() {
-      pickedFile = null;
-      uploading = false;
-    });
+    getSerial();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         key: scaffoldKey,
-        appBar: ResponsiveWidget.isSmallScreen(context)
-            ? topNavigationBar(context, scaffoldKey, 'Add Pet')
-            : null,
+        appBar: ResponsiveWidget.isSmallScreen(context) ? topNavigationBar(context, scaffoldKey, 'Add Pet') : null,
         drawer: const BigNav(currentPage: 'add_pet'),
         body: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,16 +83,12 @@ class _AddNewPetState extends State<AddNewPet> {
             if (ResponsiveWidget.isLargeScreen(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isLargeScreen(context)
-                    ? const BigNav(currentPage: 'add_pet')
-                    : null,
+                child: ResponsiveWidget.isLargeScreen(context) ? const BigNav(currentPage: 'add_pet') : null,
               )),
-            if (ResponsiveWidget.isMediumScreen(context))
+            if (ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isMediumScreen(context)
-                    ? const SmallNav(currentPage: 'add_pet')
-                    : null,
+                child: ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context) ? const SmallNav(currentPage: 'add_pet') : null,
               )),
             if (ResponsiveWidget.isSmallScreen(context)) Container(),
             Expanded(
@@ -167,29 +96,23 @@ class _AddNewPetState extends State<AddNewPet> {
                 child: SingleChildScrollView(
                   child: Container(
                     margin: ResponsiveWidget.isLargeScreen(context)
-                        ? const EdgeInsets.symmetric(
-                            vertical: 50, horizontal: 120)
-                        : ResponsiveWidget.isMediumScreen(context)
-                            ? const EdgeInsets.symmetric(
-                                vertical: 50, horizontal: 100)
+                        ? const EdgeInsets.symmetric(vertical: 50, horizontal: 120)
+                        : ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context)
+                            ? const EdgeInsets.symmetric(vertical: 50, horizontal: 100)
                             : ResponsiveWidget.isSmallScreen(context)
-                                ? const EdgeInsets.symmetric(
-                                    vertical: 20, horizontal: 10)
+                                ? const EdgeInsets.symmetric(vertical: 20, horizontal: 10)
                                 : null,
                     height: 520,
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: primary,
-                        boxShadow: [
-                          const BoxShadow(
-                            color: active,
-                            offset: Offset(
-                              1.0,
-                              1.0,
-                            ),
-                            blurRadius: 10.0,
-                          ),
-                        ]),
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: primary, boxShadow: [
+                      const BoxShadow(
+                        color: active,
+                        offset: Offset(
+                          1.0,
+                          1.0,
+                        ),
+                        blurRadius: 10.0,
+                      ),
+                    ]),
                     child: Padding(
                       padding: const EdgeInsets.all(25),
                       child: Form(
@@ -197,11 +120,10 @@ class _AddNewPetState extends State<AddNewPet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (ResponsiveWidget.isMediumScreen(context) ||
-                                ResponsiveWidget.isLargeScreen(context))
+                            if (ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isLargeScreen(context))
                               Expanded(
                                   child: Container(
-                                child: Text(
+                                child: const Text(
                                   'Add new pet',
                                   style: TextStyle(
                                     fontSize: 20,
@@ -213,10 +135,9 @@ class _AddNewPetState extends State<AddNewPet> {
                               Expanded(
                                   child: Container(
                                 child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
+                                    const Text(
                                       'Add new pet',
                                       style: TextStyle(
                                         fontSize: 20,
@@ -225,8 +146,7 @@ class _AddNewPetState extends State<AddNewPet> {
                                     ),
                                     Container(
                                       child: const Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.center,
                                         children: [
                                           Stack(
                                             alignment: Alignment.bottomRight,
@@ -234,10 +154,7 @@ class _AddNewPetState extends State<AddNewPet> {
                                               CircleAvatar(
                                                 radius: 25,
                                                 backgroundColor: profile,
-                                                child: FaIcon(
-                                                    FontAwesomeIcons.cat,
-                                                    color: secondary,
-                                                    size: 15),
+                                                child: FaIcon(FontAwesomeIcons.cat, color: secondary, size: 15),
                                               ),
                                             ],
                                           ),
@@ -252,35 +169,19 @@ class _AddNewPetState extends State<AddNewPet> {
                                 child: Container(
                                   child: Row(
                                     children: [
-                                      if (ResponsiveWidget.isMediumScreen(
-                                              context) ||
-                                          ResponsiveWidget.isLargeScreen(
-                                              context))
+                                      if (ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isLargeScreen(context))
                                         Expanded(
                                             child: Container(
                                           child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
+                                            crossAxisAlignment: CrossAxisAlignment.center,
                                             children: [
                                               Stack(
-                                                alignment:
-                                                    Alignment.bottomRight,
+                                                alignment: Alignment.bottomRight,
                                                 children: [
                                                   CircleAvatar(
-                                                    radius: ResponsiveWidget
-                                                            .isMediumScreen(
-                                                                context)
-                                                        ? 40
-                                                        : 60,
+                                                    radius: ResponsiveWidget.isMediumScreen(context) ? 40 : 60,
                                                     backgroundColor: profile,
-                                                    child: FaIcon(
-                                                        FontAwesomeIcons.cat,
-                                                        color: secondary,
-                                                        size: ResponsiveWidget
-                                                                .isMediumScreen(
-                                                                    context)
-                                                            ? 40
-                                                            : 50),
+                                                    child: FaIcon(FontAwesomeIcons.cat, color: secondary, size: ResponsiveWidget.isMediumScreen(context) ? 40 : 50),
                                                   ),
                                                 ],
                                               ),
@@ -288,130 +189,70 @@ class _AddNewPetState extends State<AddNewPet> {
                                           ),
                                         )),
                                       Expanded(
-                                          flex: ResponsiveWidget.isLargeScreen(
-                                                      context) ||
-                                                  ResponsiveWidget
-                                                      .isMediumScreen(context)
-                                              ? 2
-                                              : 1,
+                                          flex: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isMediumScreen(context) ? 2 : 1,
                                           child: Container(
                                             child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     const Text('Pet Name'),
                                                     TextFormField(
-                                                      controller:
-                                                          petNameController,
+                                                      controller: petNameController,
                                                       validator: (text) {
-                                                        if (text == null ||
-                                                            text.isEmpty) {
+                                                        if (text == null || text.isEmpty) {
                                                           return "Pet name is empty";
                                                         } else {
                                                           return null;
                                                         }
                                                       },
-                                                      decoration:
-                                                          const InputDecoration(
-                                                        border:
-                                                            UnderlineInputBorder(),
-                                                        hintText:
-                                                            'Enter your pet name',
+                                                      decoration: const InputDecoration(
+                                                        border: UnderlineInputBorder(),
+                                                        hintText: 'Enter your pet name',
                                                       ),
                                                     ),
                                                   ],
                                                 ),
                                                 const SizedBox(height: 10),
                                                 Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
                                                     const Text('Pet Age'),
                                                     TextFormField(
-                                                      controller:
-                                                          petAgeController,
+                                                      controller: petAgeController,
                                                       validator: (text) {
-                                                        if (text == null ||
-                                                            text.isEmpty) {
+                                                        if (text == null || text.isEmpty) {
                                                           return "Pet age is empty";
                                                         } else {
                                                           return null;
                                                         }
                                                       },
-                                                      decoration:
-                                                          const InputDecoration(
-                                                        border:
-                                                            UnderlineInputBorder(),
-                                                        hintText:
-                                                            'Enter your pet age',
+                                                      decoration: const InputDecoration(
+                                                        border: UnderlineInputBorder(),
+                                                        hintText: 'Enter your pet age',
                                                       ),
                                                     ),
                                                   ],
                                                 ),
                                                 const SizedBox(height: 10),
                                                 Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
-                                                    const Text('Type of Pet'),
-                                                    const SizedBox(
-                                                      height: 8,
-                                                    ),
-                                                    FormDropDown(
-                                                      Icon: const Icon(
-                                                          FontAwesomeIcons
-                                                              .angleDown,
-                                                          size: 16,
-                                                          color: primary),
-                                                      fontSize: 16,
-                                                      dropColor: secondary,
-                                                      value: selectedPosition,
-                                                      items: position
-                                                          .map((String items) {
-                                                        return DropdownMenuItem(
-                                                          value: items,
-                                                          child: Text(
-                                                            items,
-                                                            style:
-                                                                const TextStyle(
-                                                                    color:
-                                                                        primary),
-                                                          ),
-                                                        );
-                                                      }).toList(),
-                                                      selectedItemBuilder:
-                                                          (BuildContext
-                                                              context) {
-                                                        return position.map(
-                                                            (String items) {
-                                                          return DropdownMenuItem(
-                                                            value: items,
-                                                            child: Container(
-                                                              padding:
-                                                                  const EdgeInsets
-                                                                      .only(
-                                                                      left: 4),
-                                                              child: Text(
-                                                                items,
-                                                                style: const TextStyle(
-                                                                    color:
-                                                                        primary),
-                                                              ),
-                                                            ),
-                                                          );
-                                                        }).toList();
+                                                    const Text('Pet Collar Serial Number'),
+                                                    TextFormField(
+                                                      controller: petSerialController,
+                                                      validator: (text) {
+                                                        if (text == null || text.isEmpty) {
+                                                          return "Pet Collar is empty";
+                                                        } else {
+                                                          return null;
+                                                        }
                                                       },
-                                                      onChanged: (newValue) {
-                                                        setState(() {
-                                                          selectedPosition =
-                                                              newValue
-                                                                  .toString();
-                                                        });
-                                                      },
+                                                      decoration: const InputDecoration(
+                                                        border: UnderlineInputBorder(),
+                                                        hintText: 'Enter your pet collar serial number',
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
@@ -420,42 +261,28 @@ class _AddNewPetState extends State<AddNewPet> {
                                           )),
                                       const SizedBox(width: 30),
                                       Expanded(
-                                          flex: ResponsiveWidget.isLargeScreen(
-                                                      context) ||
-                                                  ResponsiveWidget
-                                                      .isMediumScreen(context)
-                                              ? 2
-                                              : 1,
+                                          flex: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isMediumScreen(context) ? 2 : 1,
                                           child: Container(
                                             child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Container(
                                                   child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
                                                     children: [
-                                                      const Text(
-                                                          'Type of Breed'),
+                                                      const Text('Type of Breed'),
                                                       TextFormField(
-                                                        controller:
-                                                            petBreedController,
+                                                        controller: petBreedController,
                                                         validator: (text) {
-                                                          if (text == null ||
-                                                              text.isEmpty) {
+                                                          if (text == null || text.isEmpty) {
                                                             return "Type of breed is empty";
                                                           } else {
                                                             return null;
                                                           }
                                                         },
-                                                        decoration:
-                                                            const InputDecoration(
-                                                          border:
-                                                              UnderlineInputBorder(),
-                                                          hintText:
-                                                              'Enter your pet breed',
+                                                        decoration: const InputDecoration(
+                                                          border: UnderlineInputBorder(),
+                                                          hintText: 'Enter your pet breed',
                                                         ),
                                                       ),
                                                     ],
@@ -464,89 +291,69 @@ class _AddNewPetState extends State<AddNewPet> {
                                                 const SizedBox(height: 10),
                                                 Container(
                                                   child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
                                                     children: [
                                                       const Text('Pet Gender'),
                                                       TextFormField(
-                                                        controller:
-                                                            petGenderController,
+                                                        controller: petGenderController,
                                                         validator: (text) {
-                                                          if (text == null ||
-                                                              text.isEmpty) {
+                                                          if (text == null || text.isEmpty) {
                                                             return "pet gender is empty";
                                                           } else {
                                                             return null;
                                                           }
                                                         },
-                                                        decoration:
-                                                            const InputDecoration(
-                                                          border:
-                                                              UnderlineInputBorder(),
-                                                          hintText:
-                                                              'Enter your pet gender',
+                                                        decoration: const InputDecoration(
+                                                          border: UnderlineInputBorder(),
+                                                          hintText: 'Enter your pet gender',
                                                         ),
                                                       ),
                                                     ],
                                                   ),
                                                 ),
                                                 const SizedBox(height: 10),
-                                                Container(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const Text('Pet Images'),
-                                                      const SizedBox(
-                                                        height: 8,
-                                                      ),
-                                                      (pickedFile == null)
-                                                          ? InkWell(
-                                                              onTap: () async {
-                                                                await getImage();
-                                                              },
-                                                              child: Column(
-                                                                children: [
-                                                                  Container(
-                                                                      height:
-                                                                          50,
-                                                                      width:
-                                                                          100,
-                                                                      decoration:
-                                                                          BoxDecoration(
-                                                                        color:
-                                                                            name,
-                                                                        borderRadius:
-                                                                            BorderRadius.circular(4),
-                                                                      ),
-                                                                      child:
-                                                                          const Icon(
-                                                                        FontAwesomeIcons
-                                                                            .plusCircle,
-                                                                        color:
-                                                                            primary,
-                                                                      )),
-                                                                ],
-                                                              ),
-                                                            )
-                                                          : ClipOval(
-                                                              child:
-                                                                  Image.memory(
-                                                                Uint8List
-                                                                    .fromList(
-                                                                  pickedFile!
-                                                                      .bytes!,
-                                                                ),
-                                                                width: 100.0,
-                                                                height: 100.0,
-                                                                fit: BoxFit
-                                                                    .cover,
+                                                Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text('Type of Pet'),
+                                                    const SizedBox(
+                                                      height: 8,
+                                                    ),
+                                                    FormDropDown(
+                                                      Icon: const Icon(FontAwesomeIcons.angleDown, size: 16, color: primary),
+                                                      fontSize: 16,
+                                                      dropColor: secondary,
+                                                      value: selectedPosition,
+                                                      items: position.map((String items) {
+                                                        return DropdownMenuItem(
+                                                          value: items,
+                                                          child: Text(
+                                                            items,
+                                                            style: const TextStyle(color: primary),
+                                                          ),
+                                                        );
+                                                      }).toList(),
+                                                      selectedItemBuilder: (BuildContext context) {
+                                                        return position.map((String items) {
+                                                          return DropdownMenuItem(
+                                                            value: items,
+                                                            child: Container(
+                                                              padding: const EdgeInsets.only(left: 4),
+                                                              child: Text(
+                                                                items,
+                                                                style: const TextStyle(color: primary),
                                                               ),
                                                             ),
-                                                    ],
-                                                  ),
+                                                          );
+                                                        }).toList();
+                                                      },
+                                                      onChanged: (newValue) {
+                                                        setState(() {
+                                                          selectedPosition = newValue.toString();
+                                                        });
+                                                      },
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
@@ -559,46 +366,24 @@ class _AddNewPetState extends State<AddNewPet> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                        backgroundColor: secondary,
-                                        padding: ResponsiveWidget.isSmallScreen(
-                                                context)
-                                            ? const EdgeInsets.symmetric(
-                                                horizontal: 80, vertical: 20)
-                                            : const EdgeInsets.symmetric(
-                                                horizontal: 130, vertical: 20),
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(5))),
+                                    style: ElevatedButton.styleFrom(backgroundColor: secondary, padding: ResponsiveWidget.isSmallScreen(context) ? const EdgeInsets.symmetric(horizontal: 80, vertical: 20) : const EdgeInsets.symmetric(horizontal: 130, vertical: 20), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5))),
                                     onPressed: () async {
                                       if (formKey.currentState!.validate()) {
-                                        if (pickedFile == null) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                        if (number == 3) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
-                                              content: Text(
-                                                  "Kindly click the plus icon to select an image",
-                                                  style: const TextStyle(
+                                              content: const Text("You can only add 3 Pets",
+                                                  style: TextStyle(
                                                     fontSize: 14,
                                                     color: red,
                                                     fontWeight: FontWeight.w400,
                                                   )),
                                               backgroundColor: spot_red,
-                                              behavior:
-                                                  SnackBarBehavior.floating,
+                                              behavior: SnackBarBehavior.floating,
                                               margin: EdgeInsets.only(
-                                                bottom: MediaQuery.of(context)
-                                                        .size
-                                                        .height -
-                                                    100,
-                                                left: !ResponsiveWidget
-                                                        .isSmallScreen(context)
-                                                    ? 300
-                                                    : 30,
-                                                right: !ResponsiveWidget
-                                                        .isSmallScreen(context)
-                                                    ? 300
-                                                    : 30,
+                                                bottom: MediaQuery.of(context).size.height - 100,
+                                                left: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
+                                                right: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
                                               ),
                                               action: SnackBarAction(
                                                 label: 'X',
@@ -610,34 +395,21 @@ class _AddNewPetState extends State<AddNewPet> {
                                             ),
                                           );
                                           return;
-                                        }
-                                        if (number == 3) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                        } else if (serialNumber.contains(petSerialController.text)) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
-                                              content: Text(
-                                                  "You can only add 3 Pets",
-                                                  style: const TextStyle(
+                                              content: const Text("Serial Number already Exists",
+                                                  style: TextStyle(
                                                     fontSize: 14,
                                                     color: red,
                                                     fontWeight: FontWeight.w400,
                                                   )),
                                               backgroundColor: spot_red,
-                                              behavior:
-                                                  SnackBarBehavior.floating,
+                                              behavior: SnackBarBehavior.floating,
                                               margin: EdgeInsets.only(
-                                                bottom: MediaQuery.of(context)
-                                                        .size
-                                                        .height -
-                                                    100,
-                                                left: !ResponsiveWidget
-                                                        .isSmallScreen(context)
-                                                    ? 300
-                                                    : 30,
-                                                right: !ResponsiveWidget
-                                                        .isSmallScreen(context)
-                                                    ? 300
-                                                    : 30,
+                                                bottom: MediaQuery.of(context).size.height - 100,
+                                                left: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
+                                                right: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
                                               ),
                                               action: SnackBarAction(
                                                 label: 'X',
@@ -650,41 +422,50 @@ class _AddNewPetState extends State<AddNewPet> {
                                           );
                                           return;
                                         } else {
-                                          await uploadImage().then((_) {
+                                          await FirebaseFirestore.instance.collection('pet_table').doc().set({
+                                            'name': petNameController.text,
+                                            'age': petAgeController.text,
+                                            'breed': petBreedController.text,
+                                            'gender': petGenderController.text,
+                                            'type': selectedPosition,
+                                            'date': FieldValue.serverTimestamp(),
+                                            'user': user,
+                                            'serial_number': petSerialController.text,
+                                            'long': number == 0
+                                                ? 5.760542060690686
+                                                : number == 1
+                                                    ? 5.76036767208318
+                                                    : number >= 2
+                                                        ? 5.760282274802908
+                                                        : null,
+                                            'lat': number == 0
+                                                ? -0.21992320329155166
+                                                : number == 1
+                                                    ? -0.21964030686779001
+                                                    : number >= 2
+                                                        ? -0.22006946030168506
+                                                        : null,
+                                          }).then((_) {
                                             petNameController.clear();
                                             petAgeController.clear();
                                             petBreedController.clear();
+                                            petSerialController.clear();
                                             pickedFile = null;
                                             petGenderController.clear();
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
+                                            ScaffoldMessenger.of(context).showSnackBar(
                                               SnackBar(
-                                                content: const Text(
-                                                    "Pet Successfully Added. Go to Pet Update for details",
+                                                content: const Text("Pet Successfully Added. Go to Pet Update for details",
                                                     style: TextStyle(
                                                       fontSize: 14,
                                                       color: notification,
-                                                      fontWeight:
-                                                          FontWeight.w400,
+                                                      fontWeight: FontWeight.w400,
                                                     )),
                                                 backgroundColor: snackbar,
-                                                behavior:
-                                                    SnackBarBehavior.floating,
+                                                behavior: SnackBarBehavior.floating,
                                                 margin: EdgeInsets.only(
-                                                  bottom: MediaQuery.of(context)
-                                                          .size
-                                                          .height -
-                                                      100,
-                                                  left: !ResponsiveWidget
-                                                          .isSmallScreen(
-                                                              context)
-                                                      ? 300
-                                                      : 30,
-                                                  right: !ResponsiveWidget
-                                                          .isSmallScreen(
-                                                              context)
-                                                      ? 300
-                                                      : 30,
+                                                  bottom: MediaQuery.of(context).size.height - 100,
+                                                  left: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
+                                                  right: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
                                                 ),
                                                 action: SnackBarAction(
                                                   label: 'X',
@@ -704,14 +485,12 @@ class _AddNewPetState extends State<AddNewPet> {
                                             children: [
                                               Text(
                                                 "Please Wait...",
-                                                style:
-                                                    TextStyle(color: primary),
+                                                style: TextStyle(color: primary),
                                               ),
                                               SizedBox(
                                                   height: 20,
                                                   width: 20,
-                                                  child:
-                                                      CircularProgressIndicator(
+                                                  child: CircularProgressIndicator(
                                                     color: primary,
                                                   )),
                                             ],

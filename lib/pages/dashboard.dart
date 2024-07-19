@@ -1,3 +1,8 @@
+import 'dart:math';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../helpers/responsiveness.dart';
 import '../navigator/big_nav.dart';
 import '../navigator/small_nav.dart';
@@ -7,7 +12,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../constants/colors.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-import 'package:syncfusion_flutter_charts/sparkcharts.dart';
 
 class SalesData {
   SalesData(this.date, this.sales);
@@ -26,20 +30,26 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey();
   late final TabController _tabController;
-  final List<SalesData> chartData = [
-    SalesData('Aug 27', 20),
-    SalesData('Aug 28', 28),
-    SalesData('Aug 29', 18),
-    SalesData('Aug 30', 25),
-    SalesData('Aug 31', 30),
-    SalesData('Sep 1', 26),
-    SalesData('Sep 2', 26)
-  ];
+  final currentUser = FirebaseAuth.instance.currentUser!.uid;
 
+  late Stream<QuerySnapshot<Map<String, dynamic>>> temp;
+  late Stream<QuerySnapshot<Map<String, dynamic>>> heart;
+  late Stream<QuerySnapshot<Map<String, dynamic>>> activity;
+  late Stream<QuerySnapshot<Map<String, dynamic>>> variability;
   @override
   void initState() {
     super.initState();
+    _initializeData();
     _tabController = TabController(length: 4, vsync: this);
+    temp = FirebaseFirestore.instance.collection("temperature_reading").orderBy("time", descending: false).snapshots();
+    heart = FirebaseFirestore.instance.collection("heart_rate").orderBy("time", descending: false).snapshots();
+    activity = FirebaseFirestore.instance.collection("activity_level").orderBy("time", descending: false).snapshots();
+    variability = FirebaseFirestore.instance.collection("heart_variability").orderBy("time", descending: false).snapshots();
+  }
+
+  void _initializeData() async {
+    await getSerial();
+    setState(() {});
   }
 
   @override
@@ -48,12 +58,24 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  List<String> serialNumber = [];
+  Future<List<String>> getSerial() async {
+    QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection("pet_table").where("user", isEqualTo: currentUser).get();
+    List<String> rulers = [];
+    snapshot.docs.forEach((doc) {
+      rulers.add(doc['serial_number']);
+    });
+
+    serialNumber = rulers;
+    return rulers;
+  }
+
+  final List<SalesData> chartData = [SalesData('Aug 27', 20), SalesData('Aug 28', 28), SalesData('Aug 29', 18), SalesData('Aug 30', 25), SalesData('Aug 31', 30), SalesData('Sep 1', 26), SalesData('Sep 2', 26)];
+
   Widget build(BuildContext context) {
     return Scaffold(
         key: scaffoldKey,
-        appBar: ResponsiveWidget.isSmallScreen(context)
-            ? topNavigationBar(context, scaffoldKey, 'Dashboard')
-            : null,
+        appBar: ResponsiveWidget.isSmallScreen(context) ? topNavigationBar(context, scaffoldKey, 'Dashboard') : null,
         drawer: const BigNav(currentPage: 'dashboard'),
         body: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,1756 +83,981 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
             if (ResponsiveWidget.isLargeScreen(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isLargeScreen(context)
-                    ? const BigNav(currentPage: 'dashboard')
-                    : null,
+                child: ResponsiveWidget.isLargeScreen(context) ? const BigNav(currentPage: 'dashboard') : null,
               )),
-            if (ResponsiveWidget.isMediumScreen(context))
+            if (ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isMediumScreen(context)
-                    ? const SmallNav(currentPage: 'dashboard')
-                    : null,
+                child: ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context) ? const SmallNav(currentPage: 'dashboard') : null,
               )),
-            if (ResponsiveWidget.isMediumScreen(context) ||
-                ResponsiveWidget.isLargeScreen(context) ||
-                ResponsiveWidget.isCustomSize(context))
-              Expanded(
-                  flex: ResponsiveWidget.isLargeScreen(context) ? 5 : 7,
-                  child: SingleChildScrollView(
-                    child: Container(
-                      margin: ResponsiveWidget.isLargeScreen(context) ||
-                              ResponsiveWidget.isCustomSize(context)
-                          ? const EdgeInsets.symmetric(
-                              horizontal: 120, vertical: 50)
-                          : ResponsiveWidget.isMediumScreen(context)
-                              ? const EdgeInsets.symmetric(
-                                  horizontal: 60, vertical: 30)
-                              : EdgeInsets.zero,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Dashboard',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                              )),
-                          const SizedBox(height: 20),
-                          const Divider(),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TabBar(
-                                  isScrollable: false,
-                                  indicatorPadding:
-                                      ResponsiveWidget.isLargeScreen(context)
+            Expanded(
+                flex: ResponsiveWidget.isLargeScreen(context) ? 5 : 7,
+                child: SingleChildScrollView(
+                  child: Container(
+                    margin: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context)
+                        ? const EdgeInsets.symmetric(horizontal: 120, vertical: 50)
+                        : ResponsiveWidget.isMediumScreen(context)
+                            ? const EdgeInsets.symmetric(horizontal: 60, vertical: 30)
+                            : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context)
+                            ? const Text('Dashboard',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                ))
+                            : SizedBox(),
+                        ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? const SizedBox(height: 20) : SizedBox(),
+                        const Divider(),
+                        ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? const SizedBox(height: 10) : SizedBox(),
+                        ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context)
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: TabBar(
+                                      isScrollable: false,
+                                      indicatorPadding: ResponsiveWidget.isLargeScreen(context)
                                           ? const EdgeInsets.only(
                                               right: 50,
                                               top: 5,
                                               bottom: 5,
                                             )
-                                          : ResponsiveWidget.isCustomSize(
-                                                  context)
-                                              ? const EdgeInsets.only(
-                                                  right: 10, top: 5, bottom: 5)
-                                              : ResponsiveWidget.isMediumScreen(
-                                                      context)
-                                                  ? const EdgeInsets.only(
-                                                      top: 5, bottom: 5)
+                                          : ResponsiveWidget.isCustomSize(context)
+                                              ? const EdgeInsets.only(right: 10, top: 5, bottom: 5)
+                                              : ResponsiveWidget.isMediumScreen(context)
+                                                  ? const EdgeInsets.only(top: 5, bottom: 5)
                                                   : EdgeInsets.zero,
-                                  indicator: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(10),
-                                    color: activeTab,
+                                      indicator: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        color: activeTab,
+                                      ),
+                                      controller: _tabController,
+                                      labelColor: tab,
+                                      tabs: [
+                                        Tab(
+                                          child: Row(
+                                            children: [
+                                              const FaIcon(
+                                                FontAwesomeIcons.thermometerHalf,
+                                                size: 16,
+                                                color: secondary,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text('Temperature',
+                                                  style: TextStyle(
+                                                    color: secondary,
+                                                    fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                        ),
+                                        Tab(
+                                          child: Row(
+                                            children: [
+                                              const FaIcon(
+                                                FontAwesomeIcons.waveSquare,
+                                                size: 16,
+                                                color: secondary,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text('Heart Rate',
+                                                  style: TextStyle(
+                                                    color: secondary,
+                                                    fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                        ),
+                                        Tab(
+                                          child: Row(
+                                            children: [
+                                              const FaIcon(
+                                                FontAwesomeIcons.bolt,
+                                                size: 16,
+                                                color: secondary,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text('Activity Level',
+                                                  style: TextStyle(
+                                                    color: secondary,
+                                                    fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                        ),
+                                        Tab(
+                                          child: Row(
+                                            children: [
+                                              const FaIcon(
+                                                FontAwesomeIcons.heart,
+                                                size: 16,
+                                                color: secondary,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text('Heart Variability',
+                                                  style: TextStyle(
+                                                    color: secondary,
+                                                    fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  controller: _tabController,
-                                  labelColor: tab,
-                                  tabs: [
-                                    Tab(
-                                      child: Row(
-                                        children: [
-                                          const FaIcon(
-                                            FontAwesomeIcons.thermometerHalf,
-                                            size: 16,
-                                            color: secondary,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Text('Temperature',
-                                              style: TextStyle(
-                                                color: secondary,
-                                                fontSize: ResponsiveWidget
-                                                            .isLargeScreen(
-                                                                context) ||
-                                                        ResponsiveWidget
-                                                            .isCustomSize(
-                                                                context)
-                                                    ? 14
-                                                    : 13,
-                                                fontWeight: FontWeight.w600,
-                                              )),
-                                        ],
+                                ],
+                              )
+                            : SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    TabBar(
+                                      isScrollable: true,
+                                      indicatorPadding: const EdgeInsets.only(right: 1, top: 5, bottom: 5),
+                                      indicator: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        color: activeTab,
                                       ),
-                                    ),
-                                    Tab(
-                                      child: Row(
-                                        children: [
-                                          const FaIcon(
-                                            FontAwesomeIcons.waveSquare,
-                                            size: 16,
-                                            color: secondary,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Text('Heart Rate',
-                                              style: TextStyle(
+                                      controller: _tabController,
+                                      labelColor: tab,
+                                      tabs: [
+                                        Tab(
+                                          child: Row(
+                                            children: [
+                                              const FaIcon(
+                                                FontAwesomeIcons.thermometerHalf,
+                                                size: 16,
                                                 color: secondary,
-                                                fontSize: ResponsiveWidget
-                                                            .isLargeScreen(
-                                                                context) ||
-                                                        ResponsiveWidget
-                                                            .isCustomSize(
-                                                                context)
-                                                    ? 14
-                                                    : 13,
-                                                fontWeight: FontWeight.w600,
-                                              )),
-                                        ],
-                                      ),
-                                    ),
-                                    Tab(
-                                      child: Row(
-                                        children: [
-                                          const FaIcon(
-                                            FontAwesomeIcons.bolt,
-                                            size: 16,
-                                            color: secondary,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text('Temperature',
+                                                  style: TextStyle(
+                                                    color: secondary,
+                                                    fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
                                           ),
-                                          const SizedBox(width: 5),
-                                          Text('Activity Level',
-                                              style: TextStyle(
+                                        ),
+                                        Tab(
+                                          child: Row(
+                                            children: [
+                                              const FaIcon(
+                                                FontAwesomeIcons.waveSquare,
+                                                size: 16,
                                                 color: secondary,
-                                                fontSize: ResponsiveWidget
-                                                            .isLargeScreen(
-                                                                context) ||
-                                                        ResponsiveWidget
-                                                            .isCustomSize(
-                                                                context)
-                                                    ? 14
-                                                    : 13,
-                                                fontWeight: FontWeight.w600,
-                                              )),
-                                        ],
-                                      ),
-                                    ),
-                                    Tab(
-                                      child: Row(
-                                        children: [
-                                          const FaIcon(
-                                            FontAwesomeIcons.heart,
-                                            size: 16,
-                                            color: secondary,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text('Heart Rate',
+                                                  style: TextStyle(
+                                                    color: secondary,
+                                                    fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
                                           ),
-                                          const SizedBox(width: 5),
-                                          Text('Heart Variability',
-                                              style: TextStyle(
+                                        ),
+                                        Tab(
+                                          child: Row(
+                                            children: [
+                                              const FaIcon(
+                                                FontAwesomeIcons.bolt,
+                                                size: 16,
                                                 color: secondary,
-                                                fontSize: ResponsiveWidget
-                                                            .isLargeScreen(
-                                                                context) ||
-                                                        ResponsiveWidget
-                                                            .isCustomSize(
-                                                                context)
-                                                    ? 14
-                                                    : 13,
-                                                fontWeight: FontWeight.w600,
-                                              )),
-                                        ],
-                                      ),
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text('Activity Level',
+                                                  style: TextStyle(
+                                                    color: secondary,
+                                                    fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                        ),
+                                        Tab(
+                                          child: Row(
+                                            children: [
+                                              const FaIcon(
+                                                FontAwesomeIcons.heart,
+                                                size: 16,
+                                                color: secondary,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text('Heart Rate Variability',
+                                                  style: TextStyle(
+                                                    color: secondary,
+                                                    fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
-                          const Divider(),
-                          const SizedBox(height: 20),
-                          Column(
-                            children: [
-                              Container(
-                                  height: 500,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 22, horizontal: 35),
-                                  decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      color: primary,
-                                      boxShadow: [
-                                        const BoxShadow(
-                                          color: active,
-                                          offset: Offset(
-                                            1.0,
-                                            1.0,
-                                          ),
-                                          blurRadius: 10.0,
-                                        ),
-                                      ]),
-                                  child: TabBarView(
-                                    controller: _tabController,
-                                    children: [
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text('Temperature Overview',
-                                              style: TextStyle(
-                                                fontSize: ResponsiveWidget
-                                                            .isLargeScreen(
-                                                                context) ||
-                                                        ResponsiveWidget
-                                                            .isCustomSize(
-                                                                context)
-                                                    ? 20
-                                                    : 17,
-                                                fontWeight: FontWeight.w700,
-                                              )),
-                                          const SizedBox(
-                                            height: 30,
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 40),
-                                            child: Column(
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('85',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Incoming',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              )),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('30',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Open',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              ))
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('190',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Resolved',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              ))
-                                                        ],
-                                                      ),
-                                                    )
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 40),
-                                              ],
-                                            ),
-                                          ),
-                                          ResponsiveWidget.isMediumScreen(
-                                                  context)
-                                              ? const SizedBox(height: 10)
-                                              : const SizedBox(height: 0),
-                                          Container(
-                                            padding: const EdgeInsets.only(
-                                                right: 50),
-                                            child: const Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.end,
-                                              children: [
-                                                Text('Daily',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    )),
-                                                SizedBox(width: 5),
-                                                Text('Weekly',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                    )),
-                                                SizedBox(width: 5),
-                                                Text('Monthly',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                    )),
-                                              ],
-                                            ),
-                                          ),
-                                          Column(
-                                            children: [
-                                              Container(
-                                                height: 200,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 40),
-                                                child: SfCartesianChart(
-                                                    primaryXAxis:
-                                                        CategoryAxis(),
-                                                    series: <ChartSeries>[
-                                                      // Renders line chart
-                                                      LineSeries<SalesData,
-                                                              String>(
-                                                          dataSource: chartData,
-                                                          xValueMapper:
-                                                              (SalesData sales,
-                                                                      _) =>
-                                                                  sales.date,
-                                                          color: line,
-                                                          yValueMapper:
-                                                              (SalesData sales,
-                                                                      _) =>
-                                                                  sales.sales)
-                                                    ]),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              Row(
-                                                children: [
-                                                  Container(
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                            left: 80),
-                                                    height: 10,
-                                                    width: 20,
-                                                    color: line,
-                                                  ),
-                                                  const SizedBox(width: 5),
-                                                  const Text('resolved'),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text('Heart Rate Overview',
-                                              style: TextStyle(
-                                                fontSize: ResponsiveWidget
-                                                            .isLargeScreen(
-                                                                context) ||
-                                                        ResponsiveWidget
-                                                            .isCustomSize(
-                                                                context)
-                                                    ? 20
-                                                    : 17,
-                                                fontWeight: FontWeight.w700,
-                                              )),
-                                          const SizedBox(
-                                            height: 30,
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 40),
-                                            child: Column(
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('85',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Incoming',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              )),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('30',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Open',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              ))
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('190',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Resolved',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              ))
-                                                        ],
-                                                      ),
-                                                    )
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 40),
-                                              ],
-                                            ),
-                                          ),
-                                          ResponsiveWidget.isMediumScreen(
-                                                  context)
-                                              ? const SizedBox(height: 10)
-                                              : const SizedBox(height: 0),
-                                          Container(
-                                            padding: const EdgeInsets.only(
-                                                right: 50),
-                                            child: const Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.end,
-                                              children: [
-                                                Text('Daily',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    )),
-                                                SizedBox(width: 5),
-                                                Text('Weekly',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                    )),
-                                                SizedBox(width: 5),
-                                                Text('Monthly',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                    )),
-                                              ],
-                                            ),
-                                          ),
-                                          Column(
-                                            children: [
-                                              Container(
-                                                height: 200,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 40),
-                                                child: SfCartesianChart(
-                                                    primaryXAxis:
-                                                        CategoryAxis(),
-                                                    series: <ChartSeries>[
-                                                      // Renders line chart
-                                                      LineSeries<SalesData,
-                                                              String>(
-                                                          dataSource: chartData,
-                                                          xValueMapper:
-                                                              (SalesData sales,
-                                                                      _) =>
-                                                                  sales.date,
-                                                          color: line,
-                                                          yValueMapper:
-                                                              (SalesData sales,
-                                                                      _) =>
-                                                                  sales.sales)
-                                                    ]),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              Row(
-                                                children: [
-                                                  Container(
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                            left: 80),
-                                                    height: 10,
-                                                    width: 20,
-                                                    color: line,
-                                                  ),
-                                                  const SizedBox(width: 5),
-                                                  const Text('resolved'),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text('Activity Level Overview',
-                                              style: TextStyle(
-                                                fontSize: ResponsiveWidget
-                                                            .isLargeScreen(
-                                                                context) ||
-                                                        ResponsiveWidget
-                                                            .isCustomSize(
-                                                                context)
-                                                    ? 20
-                                                    : 17,
-                                                fontWeight: FontWeight.w700,
-                                              )),
-                                          const SizedBox(
-                                            height: 30,
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 40),
-                                            child: Column(
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('85',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Incoming',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              )),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('30',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Open',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              ))
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('190',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Resolved',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              ))
-                                                        ],
-                                                      ),
-                                                    )
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 40),
-                                              ],
-                                            ),
-                                          ),
-                                          ResponsiveWidget.isMediumScreen(
-                                                  context)
-                                              ? const SizedBox(height: 10)
-                                              : const SizedBox(height: 0),
-                                          Container(
-                                            padding: const EdgeInsets.only(
-                                                right: 50),
-                                            child: const Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.end,
-                                              children: [
-                                                Text('Daily',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    )),
-                                                SizedBox(width: 5),
-                                                Text('Weekly',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                    )),
-                                                SizedBox(width: 5),
-                                                Text('Monthly',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                    )),
-                                              ],
-                                            ),
-                                          ),
-                                          Column(
-                                            children: [
-                                              Container(
-                                                height: 200,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 40),
-                                                child: SfCartesianChart(
-                                                    primaryXAxis:
-                                                        CategoryAxis(),
-                                                    series: <ChartSeries>[
-                                                      // Renders line chart
-                                                      LineSeries<SalesData,
-                                                              String>(
-                                                          dataSource: chartData,
-                                                          xValueMapper:
-                                                              (SalesData sales,
-                                                                      _) =>
-                                                                  sales.date,
-                                                          color: line,
-                                                          yValueMapper:
-                                                              (SalesData sales,
-                                                                      _) =>
-                                                                  sales.sales)
-                                                    ]),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              Row(
-                                                children: [
-                                                  Container(
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                            left: 80),
-                                                    height: 10,
-                                                    width: 20,
-                                                    color: line,
-                                                  ),
-                                                  const SizedBox(width: 5),
-                                                  const Text('resolved'),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                              'Heart Rate Variability Overview',
-                                              style: TextStyle(
-                                                fontSize: ResponsiveWidget
-                                                            .isLargeScreen(
-                                                                context) ||
-                                                        ResponsiveWidget
-                                                            .isCustomSize(
-                                                                context)
-                                                    ? 20
-                                                    : 17,
-                                                fontWeight: FontWeight.w700,
-                                              )),
-                                          const SizedBox(
-                                            height: 30,
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 40),
-                                            child: Column(
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('85',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Incoming',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              )),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('30',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Open',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              ))
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Column(
-                                                        children: [
-                                                          Text('190',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 24
-                                                                    : 20,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              )),
-                                                          Text('Resolved',
-                                                              style: TextStyle(
-                                                                fontSize: ResponsiveWidget.isLargeScreen(
-                                                                            context) ||
-                                                                        ResponsiveWidget.isCustomSize(
-                                                                            context)
-                                                                    ? 14
-                                                                    : 12,
-                                                              ))
-                                                        ],
-                                                      ),
-                                                    )
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 40),
-                                              ],
-                                            ),
-                                          ),
-                                          ResponsiveWidget.isMediumScreen(
-                                                  context)
-                                              ? const SizedBox(height: 10)
-                                              : const SizedBox(height: 0),
-                                          Container(
-                                            padding: const EdgeInsets.only(
-                                                right: 50),
-                                            child: const Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.end,
-                                              children: [
-                                                Text('Daily',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    )),
-                                                SizedBox(width: 5),
-                                                Text('Weekly',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                    )),
-                                                SizedBox(width: 5),
-                                                Text('Monthly',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                    )),
-                                              ],
-                                            ),
-                                          ),
-                                          Column(
-                                            children: [
-                                              Container(
-                                                height: 200,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 40),
-                                                child: SfCartesianChart(
-                                                    primaryXAxis:
-                                                        CategoryAxis(),
-                                                    series: <ChartSeries>[
-                                                      // Renders line chart
-                                                      LineSeries<SalesData,
-                                                              String>(
-                                                          dataSource: chartData,
-                                                          xValueMapper:
-                                                              (SalesData sales,
-                                                                      _) =>
-                                                                  sales.date,
-                                                          color: line,
-                                                          yValueMapper:
-                                                              (SalesData sales,
-                                                                      _) =>
-                                                                  sales.sales)
-                                                    ]),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              Row(
-                                                children: [
-                                                  Container(
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                            left: 80),
-                                                    height: 10,
-                                                    width: 20,
-                                                    color: line,
-                                                  ),
-                                                  const SizedBox(width: 5),
-                                                  const Text('resolved'),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ))
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                  )),
-            if (ResponsiveWidget.isSmallScreen(context))
-              Expanded(
-                  child: SingleChildScrollView(
-                child: Container(
-                    margin: const EdgeInsets.symmetric(
-                        vertical: 10, horizontal: 30),
-                    child: Column(
-                      children: [
                         const Divider(),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              TabBar(
-                                isScrollable: true,
-                                indicatorPadding: const EdgeInsets.only(
-                                    right: 1, top: 5, bottom: 5),
-                                indicator: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  color: activeTab,
-                                ),
-                                controller: _tabController,
-                                labelColor: tab,
-                                tabs: [
-                                  Tab(
-                                    child: Row(
+                        const SizedBox(height: 20),
+                        Column(
+                          children: [
+                            Container(
+                                height: 500,
+                                padding: EdgeInsets.symmetric(vertical: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 22 : 10, horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 35 : 15),
+                                decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: primary, boxShadow: [
+                                  const BoxShadow(
+                                    color: active,
+                                    offset: Offset(
+                                      1.0,
+                                      1.0,
+                                    ),
+                                    blurRadius: 10.0,
+                                  ),
+                                ]),
+                                child: TabBarView(
+                                  controller: _tabController,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const FaIcon(
-                                          FontAwesomeIcons.thermometerHalf,
-                                          size: 16,
-                                          color: secondary,
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text('Temperature',
+                                        Text('Temperature Overview',
                                             style: TextStyle(
-                                              color: secondary,
-                                              fontSize: ResponsiveWidget
-                                                          .isLargeScreen(
-                                                              context) ||
-                                                      ResponsiveWidget
-                                                          .isCustomSize(context)
-                                                  ? 14
-                                                  : 13,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 20 : 17,
+                                              fontWeight: FontWeight.w700,
                                             )),
+                                        const SizedBox(
+                                          height: 30,
+                                        ),
+                                        StreamBuilder(
+                                            stream: temp,
+                                            builder: (context, snapshot) {
+                                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                                return const Center(
+                                                  child: CircularProgressIndicator(
+                                                    color: secondary,
+                                                  ),
+                                                );
+                                              }
+
+                                              var now = DateTime.now();
+                                              var today = DateTime(now.year, now.month, now.day); // Today's date without time
+                                              var yesterday = today.subtract(const Duration(days: 1)); // Yesterday's date without time
+
+                                              bool isSameDay(Timestamp timestamp, DateTime day) {
+                                                var itemDate = (timestamp as Timestamp).toDate();
+                                                return itemDate.year == day.year && itemDate.month == day.month && itemDate.day == day.day;
+                                              }
+
+                                              double calculateAverageTemperature(List data) {
+                                                if (data.isEmpty) return 0.0;
+                                                double sum = data.map((item) => item['temperature']).fold(0, (prev, temp) => prev + temp);
+                                                return sum / data.length;
+                                              }
+
+                                              var todayData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number']) && isSameDay(item['time'], today)).toList();
+
+                                              var yesterdayData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number']) && isSameDay(item['time'], yesterday)).toList();
+
+                                              var overallData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number'])).toList();
+                                              var averageTemperatureToday = calculateAverageTemperature(todayData);
+                                              var averageTemperatureYesterday = calculateAverageTemperature(yesterdayData);
+
+                                              double averageTemperatureOverall = calculateAverageTemperature(overallData);
+                                              averageTemperatureOverall = double.parse(averageTemperatureOverall.toStringAsFixed(2));
+
+                                              List<SalesData> chartTemp = [];
+                                              Map<String, List<double>> dailyAverages = {};
+
+                                              overallData.forEach((item) {
+                                                DateTime itemDate = (item['time'] as Timestamp).toDate();
+                                                String formattedDate = '${_getMonthAbbreviation(itemDate.month)} ${itemDate.day}'; // Format like 'Aug 24'
+
+                                                if (!dailyAverages.containsKey(formattedDate)) {
+                                                  dailyAverages[formattedDate] = [];
+                                                }
+
+                                                dailyAverages[formattedDate]!.add(item['temperature'].toDouble());
+                                              });
+
+                                              dailyAverages.forEach((date, tempRates) {
+                                                double averageTempRate = tempRates.isNotEmpty ? tempRates.reduce((a, b) => a + b) / tempRates.length : 0.0;
+                                                chartTemp.add(SalesData(date, averageTempRate));
+                                              });
+
+                                              return Column(
+                                                children: [
+                                                  Container(
+                                                    padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 0),
+                                                    child: Column(
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageTemperatureYesterday',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text("Yesterday",
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      )),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageTemperatureToday',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text('Today',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      ))
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageTemperatureOverall',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text("Overall",
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      ))
+                                                                ],
+                                                              ),
+                                                            )
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 40),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  ResponsiveWidget.isMediumScreen(context) ? const SizedBox(height: 10) : const SizedBox(height: 0),
+                                                  Container(
+                                                    padding: const EdgeInsets.only(right: 50),
+                                                    child: const Row(
+                                                      mainAxisAlignment: MainAxisAlignment.end,
+                                                      children: [
+                                                        Text('Daily',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.w700,
+                                                            )),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Column(
+                                                    children: [
+                                                      Container(
+                                                        height: 200,
+                                                        padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 0),
+                                                        child: SfCartesianChart(primaryXAxis: CategoryAxis(), series: <ChartSeries>[
+                                                          // Renders line chart
+                                                          LineSeries<SalesData, String>(dataSource: chartTemp, xValueMapper: (SalesData sales, _) => sales.date, color: line, yValueMapper: (SalesData sales, _) => sales.sales)
+                                                        ]),
+                                                      ),
+                                                      const SizedBox(height: 10),
+                                                      Row(
+                                                        children: [
+                                                          Container(
+                                                            margin: const EdgeInsets.only(left: 80),
+                                                            height: 10,
+                                                            width: 20,
+                                                            color: line,
+                                                          ),
+                                                          const SizedBox(width: 5),
+                                                          const Text("Overall"),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              );
+                                            }),
                                       ],
                                     ),
-                                  ),
-                                  Tab(
-                                    child: Row(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const FaIcon(
-                                          FontAwesomeIcons.waveSquare,
-                                          size: 16,
-                                          color: secondary,
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text('Heart Rate',
+                                        Text('Heart Rate Overview',
                                             style: TextStyle(
-                                              color: secondary,
-                                              fontSize: ResponsiveWidget
-                                                          .isLargeScreen(
-                                                              context) ||
-                                                      ResponsiveWidget
-                                                          .isCustomSize(context)
-                                                  ? 14
-                                                  : 13,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 20 : 17,
+                                              fontWeight: FontWeight.w700,
                                             )),
+                                        const SizedBox(
+                                          height: 30,
+                                        ),
+                                        StreamBuilder(
+                                            stream: heart,
+                                            builder: (context, snapshot) {
+                                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                                return const Center(
+                                                  child: CircularProgressIndicator(
+                                                    color: secondary,
+                                                  ),
+                                                );
+                                              }
+
+                                              var now = DateTime.now();
+                                              var today = DateTime(now.year, now.month, now.day); // Today's date without time
+                                              var yesterday = today.subtract(const Duration(days: 1)); // Yesterday's date without time
+
+                                              bool isSameDay(Timestamp timestamp, DateTime day) {
+                                                var itemDate = (timestamp as Timestamp).toDate();
+                                                return itemDate.year == day.year && itemDate.month == day.month && itemDate.day == day.day;
+                                              }
+
+                                              double calculateAverageTemperature(List data) {
+                                                if (data.isEmpty) return 0.0;
+                                                double sum = data.map((item) => item['heart_rate']).fold(0, (prev, temp) => prev + temp);
+                                                return sum / data.length;
+                                              }
+
+                                              var todayData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number']) && isSameDay(item['time'], today)).toList();
+
+                                              var yesterdayData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number']) && isSameDay(item['time'], yesterday)).toList();
+
+                                              var overallData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number'])).toList();
+                                              var averageTemperatureToday = calculateAverageTemperature(todayData);
+                                              var averageTemperatureYesterday = calculateAverageTemperature(yesterdayData);
+                                              double averageTemperatureOverall = calculateAverageTemperature(overallData);
+                                              averageTemperatureOverall = double.parse(averageTemperatureOverall.toStringAsFixed(2));
+
+                                              List<SalesData> chartHeart = [];
+                                              Map<String, List<double>> dailyAverages = {};
+
+                                              overallData.forEach((item) {
+                                                DateTime itemDate = (item['time'] as Timestamp).toDate();
+                                                String formattedDate = '${_getMonthAbbreviation(itemDate.month)} ${itemDate.day}';
+
+                                                if (!dailyAverages.containsKey(formattedDate)) {
+                                                  dailyAverages[formattedDate] = [];
+                                                }
+
+                                                dailyAverages[formattedDate]!.add(item['heart_rate'].toDouble());
+                                              });
+
+                                              dailyAverages.forEach((date, heartRates) {
+                                                double averageHeartRate = heartRates.isNotEmpty ? heartRates.reduce((a, b) => a + b) / heartRates.length : 0.0;
+                                                chartHeart.add(SalesData(date, averageHeartRate));
+                                              });
+                                              return Column(
+                                                children: [
+                                                  Container(
+                                                    padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 20),
+                                                    child: Column(
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageTemperatureYesterday',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text("Yesterday",
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      )),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageTemperatureToday',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text('Today',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      ))
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageTemperatureOverall',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text("Overall",
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      ))
+                                                                ],
+                                                              ),
+                                                            )
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 40),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  ResponsiveWidget.isMediumScreen(context) ? const SizedBox(height: 10) : const SizedBox(height: 0),
+                                                  Container(
+                                                    padding: const EdgeInsets.only(right: 50),
+                                                    child: const Row(
+                                                      mainAxisAlignment: MainAxisAlignment.end,
+                                                      children: [
+                                                        Text('Daily',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.w700,
+                                                            )),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Column(
+                                                    children: [
+                                                      Container(
+                                                        height: 200,
+                                                        padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 0),
+                                                        child: SfCartesianChart(primaryXAxis: CategoryAxis(), series: <ChartSeries>[
+                                                          // Renders line chart
+                                                          LineSeries<SalesData, String>(dataSource: chartHeart, xValueMapper: (SalesData sales, _) => sales.date, color: line, yValueMapper: (SalesData sales, _) => sales.sales)
+                                                        ]),
+                                                      ),
+                                                      const SizedBox(height: 10),
+                                                      Row(
+                                                        children: [
+                                                          Container(
+                                                            margin: const EdgeInsets.only(left: 80),
+                                                            height: 10,
+                                                            width: 20,
+                                                            color: line,
+                                                          ),
+                                                          const SizedBox(width: 5),
+                                                          const Text("Overall"),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              );
+                                            }),
                                       ],
                                     ),
-                                  ),
-                                  Tab(
-                                    child: Row(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const FaIcon(
-                                          FontAwesomeIcons.bolt,
-                                          size: 16,
-                                          color: secondary,
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text('Activity Level',
+                                        Text('Activity Level Overview',
                                             style: TextStyle(
-                                              color: secondary,
-                                              fontSize: ResponsiveWidget
-                                                          .isLargeScreen(
-                                                              context) ||
-                                                      ResponsiveWidget
-                                                          .isCustomSize(context)
-                                                  ? 14
-                                                  : 13,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 20 : 17,
+                                              fontWeight: FontWeight.w700,
                                             )),
+                                        const SizedBox(
+                                          height: 30,
+                                        ),
+                                        StreamBuilder(
+                                            stream: activity,
+                                            builder: (context, snapshot) {
+                                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                                return const Center(
+                                                  child: CircularProgressIndicator(
+                                                    color: secondary,
+                                                  ),
+                                                );
+                                              }
+
+                                              var now = DateTime.now();
+                                              var today = DateTime(now.year, now.month, now.day);
+                                              var yesterday = today.subtract(Duration(days: 1));
+
+                                              bool isSameDay(Timestamp timestamp, DateTime day) {
+                                                var itemDate = (timestamp as Timestamp).toDate();
+                                                return itemDate.year == day.year && itemDate.month == day.month && itemDate.day == day.day;
+                                              }
+
+                                              List<Map<String, dynamic>> activity = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number'])).map((item) {
+                                                double x = item['activity_x'] as double;
+                                                double y = item['activity_y'] as double;
+                                                double z = item['activity_z'] as double;
+
+                                                // Calculate magnitude
+                                                double magnitude = sqrt(x * x + y * y + z * z);
+                                                String formattedMagnitude = magnitude.toStringAsFixed(2);
+
+                                                return {
+                                                  "x": x,
+                                                  "y": y,
+                                                  "z": z,
+                                                  "time": item['time'],
+                                                  "magnitude": double.parse(formattedMagnitude),
+                                                };
+                                              }).toList();
+
+                                              List<Map<String, dynamic>> todayData = activity.where((item) => isSameDay(item['time'], today)).toList();
+                                              List<Map<String, dynamic>> yesterdayData = activity.where((item) => isSameDay(item['time'], yesterday)).toList();
+
+                                              List<Map<String, dynamic>> overallData = activity;
+
+                                              double calculateAverageMagnitude(List<Map<String, dynamic>> data) {
+                                                if (data.isEmpty) return 0.0;
+                                                double sum = data.map((item) => item['magnitude']).reduce((value, element) => value + element);
+                                                return sum / data.length;
+                                              }
+
+                                              double averageMagnitudeToday = calculateAverageMagnitude(todayData);
+                                              double averageMagnitudeYesterday = calculateAverageMagnitude(yesterdayData);
+                                              double averageMagnitudeOverall = calculateAverageMagnitude(overallData);
+                                              averageMagnitudeOverall = double.parse(averageMagnitudeOverall.toStringAsFixed(2));
+
+                                              List<SalesData> chartActivity = [];
+                                              Map<String, List<double>> dailyAverages = {};
+
+                                              activity.forEach((item) {
+                                                DateTime itemDate = (item['time'] as Timestamp).toDate();
+                                                String formattedDate = '${_getMonthAbbreviation(itemDate.month)} ${itemDate.day}';
+
+                                                if (!dailyAverages.containsKey(formattedDate)) {
+                                                  dailyAverages[formattedDate] = [];
+                                                }
+
+                                                dailyAverages[formattedDate]!.add(item['magnitude']);
+                                              });
+
+                                              dailyAverages.forEach((date, magnitudes) {
+                                                double averageMagnitude = magnitudes.isNotEmpty ? magnitudes.reduce((a, b) => a + b) / magnitudes.length : 0.0;
+                                                chartActivity.add(SalesData(date, averageMagnitude));
+                                              });
+
+                                              return Column(
+                                                children: [
+                                                  Container(
+                                                    padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 0),
+                                                    child: Column(
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageMagnitudeYesterday',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text("Yesterday",
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      )),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageMagnitudeToday',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text('Today',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      ))
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageMagnitudeOverall',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text("Overall",
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      ))
+                                                                ],
+                                                              ),
+                                                            )
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 40),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  ResponsiveWidget.isMediumScreen(context) ? const SizedBox(height: 10) : const SizedBox(height: 0),
+                                                  Container(
+                                                    padding: const EdgeInsets.only(right: 50),
+                                                    child: const Row(
+                                                      mainAxisAlignment: MainAxisAlignment.end,
+                                                      children: [
+                                                        Text('Daily',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.w700,
+                                                            )),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Column(
+                                                    children: [
+                                                      Container(
+                                                        height: 200,
+                                                        padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 0),
+                                                        child: SfCartesianChart(primaryXAxis: CategoryAxis(), series: <ChartSeries>[
+                                                          // Renders line chart
+                                                          LineSeries<SalesData, String>(dataSource: chartActivity, xValueMapper: (SalesData sales, _) => sales.date, color: line, yValueMapper: (SalesData sales, _) => sales.sales)
+                                                        ]),
+                                                      ),
+                                                      const SizedBox(height: 10),
+                                                      Row(
+                                                        children: [
+                                                          Container(
+                                                            margin: const EdgeInsets.only(left: 80),
+                                                            height: 10,
+                                                            width: 20,
+                                                            color: line,
+                                                          ),
+                                                          const SizedBox(width: 5),
+                                                          const Text("Overall"),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              );
+                                            }),
                                       ],
                                     ),
-                                  ),
-                                  Tab(
-                                    child: Row(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const FaIcon(
-                                          FontAwesomeIcons.heart,
-                                          size: 16,
-                                          color: secondary,
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text('Heart Rate Variability',
+                                        Text('Heart Rate Variability Overview',
                                             style: TextStyle(
-                                              color: secondary,
-                                              fontSize: ResponsiveWidget
-                                                          .isLargeScreen(
-                                                              context) ||
-                                                      ResponsiveWidget
-                                                          .isCustomSize(context)
-                                                  ? 14
-                                                  : 13,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 20 : 17,
+                                              fontWeight: FontWeight.w700,
                                             )),
+                                        const SizedBox(
+                                          height: 30,
+                                        ),
+                                        StreamBuilder(
+                                            stream: variability,
+                                            builder: (context, snapshot) {
+                                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                                return const Center(
+                                                  child: CircularProgressIndicator(
+                                                    color: secondary,
+                                                  ),
+                                                );
+                                              }
+
+                                              var now = DateTime.now();
+                                              var today = DateTime(now.year, now.month, now.day); // Today's date without time
+                                              var yesterday = today.subtract(const Duration(days: 1)); // Yesterday's date without time
+
+                                              bool isSameDay(Timestamp timestamp, DateTime day) {
+                                                var itemDate = (timestamp as Timestamp).toDate();
+                                                return itemDate.year == day.year && itemDate.month == day.month && itemDate.day == day.day;
+                                              }
+
+                                              double calculateAverageTemperature(List data) {
+                                                if (data.isEmpty) return 0.0;
+                                                double sum = data.map((item) => item['hrv']).fold(0, (prev, temp) => prev + temp);
+                                                return sum / data.length;
+                                              }
+
+                                              var todayData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number']) && isSameDay(item['time'], today)).toList();
+
+                                              var yesterdayData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number']) && isSameDay(item['time'], yesterday)).toList();
+
+                                              var overallData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number'])).toList();
+                                              var averageTemperatureToday = calculateAverageTemperature(todayData);
+                                              var averageTemperatureYesterday = calculateAverageTemperature(yesterdayData);
+                                              double averageTemperatureOverall = calculateAverageTemperature(overallData);
+                                              averageTemperatureOverall = double.parse(averageTemperatureOverall.toStringAsFixed(2));
+
+                                              List<SalesData> chartHeart = [];
+                                              Map<String, List<double>> dailyAverages = {};
+
+                                              overallData.forEach((item) {
+                                                DateTime itemDate = (item['time'] as Timestamp).toDate();
+                                                String formattedDate = '${_getMonthAbbreviation(itemDate.month)} ${itemDate.day}';
+
+                                                if (!dailyAverages.containsKey(formattedDate)) {
+                                                  dailyAverages[formattedDate] = [];
+                                                }
+
+                                                dailyAverages[formattedDate]!.add(item['hrv'].toDouble());
+                                              });
+
+                                              dailyAverages.forEach((date, heartRates) {
+                                                double averageHeartRate = heartRates.isNotEmpty ? heartRates.reduce((a, b) => a + b) / heartRates.length : 0.0;
+                                                chartHeart.add(SalesData(date, averageHeartRate));
+                                              });
+                                              return Column(
+                                                children: [
+                                                  Container(
+                                                    padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 20),
+                                                    child: Column(
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageTemperatureYesterday',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text("Yesterday",
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      )),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageTemperatureToday',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text('Today',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      ))
+                                                                ],
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              child: Column(
+                                                                children: [
+                                                                  Text('$averageTemperatureOverall',
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
+                                                                        fontWeight: FontWeight.w700,
+                                                                      )),
+                                                                  Text("Overall",
+                                                                      style: TextStyle(
+                                                                        fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 14 : 12,
+                                                                      ))
+                                                                ],
+                                                              ),
+                                                            )
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 40),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  ResponsiveWidget.isMediumScreen(context) ? const SizedBox(height: 10) : const SizedBox(height: 0),
+                                                  Container(
+                                                    padding: const EdgeInsets.only(right: 50),
+                                                    child: const Row(
+                                                      mainAxisAlignment: MainAxisAlignment.end,
+                                                      children: [
+                                                        Text('Daily',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.w700,
+                                                            )),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Column(
+                                                    children: [
+                                                      Container(
+                                                        height: 200,
+                                                        padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 0),
+                                                        child: SfCartesianChart(primaryXAxis: CategoryAxis(), series: <ChartSeries>[
+                                                          // Renders line chart
+                                                          LineSeries<SalesData, String>(dataSource: chartHeart, xValueMapper: (SalesData sales, _) => sales.date, color: line, yValueMapper: (SalesData sales, _) => sales.sales)
+                                                        ]),
+                                                      ),
+                                                      const SizedBox(height: 10),
+                                                      Row(
+                                                        children: [
+                                                          Container(
+                                                            margin: const EdgeInsets.only(left: 80),
+                                                            height: 10,
+                                                            width: 20,
+                                                            color: line,
+                                                          ),
+                                                          const SizedBox(width: 5),
+                                                          const Text("Overall"),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              );
+                                            }),
                                       ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(),
-                        const SizedBox(height: 10),
-                        Container(
-                          height: 450,
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              Column(
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        color: primary,
-                                        boxShadow: [
-                                          const BoxShadow(
-                                            color: active,
-                                            offset: Offset(
-                                              1.0,
-                                              1.0,
-                                            ),
-                                            blurRadius: 10.0,
-                                          ),
-                                        ]),
-                                    child: Column(children: [
-                                      Container(
-                                        padding: const EdgeInsets.only(
-                                            top: 20, right: 7),
-                                        child: const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            Text('Daily',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Weekly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Monthly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        height: 150,
-                                        child: SfCartesianChart(
-                                            primaryXAxis: CategoryAxis(),
-                                            series: <ChartSeries>[
-                                              // Renders line chart
-                                              LineSeries<SalesData, String>(
-                                                  dataSource: chartData,
-                                                  xValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.date,
-                                                  color: line,
-                                                  yValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.sales)
-                                            ]),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            margin:
-                                                const EdgeInsets.only(left: 20),
-                                            height: 10,
-                                            width: 15,
-                                            color: line,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          const Text('resolved'),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                    ]),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  const Column(children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('85',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Incoming',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  )),
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('30',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Open',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('190',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Resolved',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        )
-                                      ],
-                                    ),
-                                    SizedBox(height: 40),
-                                  ]),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        color: primary,
-                                        boxShadow: [
-                                          const BoxShadow(
-                                            color: active,
-                                            offset: Offset(
-                                              1.0,
-                                              1.0,
-                                            ),
-                                            blurRadius: 10.0,
-                                          ),
-                                        ]),
-                                    child: Column(children: [
-                                      Container(
-                                        padding: const EdgeInsets.only(
-                                            top: 20, right: 7),
-                                        child: const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            Text('Daily',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Weekly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Monthly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        height: 150,
-                                        child: SfCartesianChart(
-                                            primaryXAxis: CategoryAxis(),
-                                            series: <ChartSeries>[
-                                              // Renders line chart
-                                              LineSeries<SalesData, String>(
-                                                  dataSource: chartData,
-                                                  xValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.date,
-                                                  color: line,
-                                                  yValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.sales)
-                                            ]),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            margin:
-                                                const EdgeInsets.only(left: 20),
-                                            height: 10,
-                                            width: 15,
-                                            color: line,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          const Text('resolved'),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                    ]),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  const Column(children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('85',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Incoming',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  )),
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('30',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Open',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('190',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Resolved',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        )
-                                      ],
-                                    ),
-                                    SizedBox(height: 40),
-                                  ]),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        color: primary,
-                                        boxShadow: [
-                                          const BoxShadow(
-                                            color: active,
-                                            offset: Offset(
-                                              1.0,
-                                              1.0,
-                                            ),
-                                            blurRadius: 10.0,
-                                          ),
-                                        ]),
-                                    child: Column(children: [
-                                      Container(
-                                        padding: const EdgeInsets.only(
-                                            top: 20, right: 7),
-                                        child: const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            Text('Daily',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Weekly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Monthly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        height: 150,
-                                        child: SfCartesianChart(
-                                            primaryXAxis: CategoryAxis(),
-                                            series: <ChartSeries>[
-                                              // Renders line chart
-                                              LineSeries<SalesData, String>(
-                                                  dataSource: chartData,
-                                                  xValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.date,
-                                                  color: line,
-                                                  yValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.sales)
-                                            ]),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            margin:
-                                                const EdgeInsets.only(left: 20),
-                                            height: 10,
-                                            width: 15,
-                                            color: line,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          const Text('resolved'),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                    ]),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  const Column(children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('85',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Incoming',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  )),
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('30',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Open',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('190',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Resolved',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        )
-                                      ],
-                                    ),
-                                    SizedBox(height: 40),
-                                  ]),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        color: primary,
-                                        boxShadow: [
-                                          const BoxShadow(
-                                            color: active,
-                                            offset: Offset(
-                                              1.0,
-                                              1.0,
-                                            ),
-                                            blurRadius: 10.0,
-                                          ),
-                                        ]),
-                                    child: Column(children: [
-                                      Container(
-                                        padding: const EdgeInsets.only(
-                                            top: 20, right: 7),
-                                        child: const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            Text('Daily',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Weekly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Monthly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        height: 150,
-                                        child: SfCartesianChart(
-                                            primaryXAxis: CategoryAxis(),
-                                            series: <ChartSeries>[
-                                              // Renders line chart
-                                              LineSeries<SalesData, String>(
-                                                  dataSource: chartData,
-                                                  xValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.date,
-                                                  color: line,
-                                                  yValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.sales)
-                                            ]),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            margin:
-                                                const EdgeInsets.only(left: 20),
-                                            height: 10,
-                                            width: 15,
-                                            color: line,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          const Text('resolved'),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                    ]),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  const Column(children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('85',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Incoming',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  )),
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('30',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Open',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('190',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Resolved',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        )
-                                      ],
-                                    ),
-                                    SizedBox(height: 40),
-                                  ]),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        color: primary,
-                                        boxShadow: [
-                                          const BoxShadow(
-                                            color: active,
-                                            offset: Offset(
-                                              1.0,
-                                              1.0,
-                                            ),
-                                            blurRadius: 10.0,
-                                          ),
-                                        ]),
-                                    child: Column(children: [
-                                      Container(
-                                        padding: const EdgeInsets.only(
-                                            top: 20, right: 7),
-                                        child: const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            Text('Daily',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Weekly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                            SizedBox(width: 5),
-                                            Text('Monthly',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                )),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        height: 150,
-                                        child: SfCartesianChart(
-                                            primaryXAxis: CategoryAxis(),
-                                            series: <ChartSeries>[
-                                              // Renders line chart
-                                              LineSeries<SalesData, String>(
-                                                  dataSource: chartData,
-                                                  xValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.date,
-                                                  color: line,
-                                                  yValueMapper:
-                                                      (SalesData sales, _) =>
-                                                          sales.sales)
-                                            ]),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            margin:
-                                                const EdgeInsets.only(left: 20),
-                                            height: 10,
-                                            width: 15,
-                                            color: line,
-                                          ),
-                                          const SizedBox(width: 5),
-                                          const Text('resolved'),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                    ]),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  const Column(children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('85',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Incoming',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  )),
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('30',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Open',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            children: [
-                                              Text('190',
-                                                  style: TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.w700,
-                                                  )),
-                                              Text('Resolved',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                  ))
-                                            ],
-                                          ),
-                                        )
-                                      ],
-                                    ),
-                                    SizedBox(height: 40),
-                                  
-                                  ]),
-                                ],
-                              ),
-                            ],
-                          ),
+                                  ],
+                                ))
+                          ],
                         )
                       ],
-                    )),
-              ))
+                    ),
+                  ),
+                )),
           ],
         ));
+  }
+
+  // Helper function to get month abbreviation
+  String _getMonthAbbreviation(int month) {
+    switch (month) {
+      case 1:
+        return 'Jan';
+      case 2:
+        return 'Feb';
+      case 3:
+        return 'Mar';
+      case 4:
+        return 'Apr';
+      case 5:
+        return 'May';
+      case 6:
+        return 'Jun';
+      case 7:
+        return 'Jul';
+      case 8:
+        return 'Aug';
+      case 9:
+        return 'Sep';
+      case 10:
+        return 'Oct';
+      case 11:
+        return 'Nov';
+      case 12:
+        return 'Dec';
+      default:
+        return '';
+    }
   }
 }

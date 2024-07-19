@@ -1,9 +1,6 @@
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -37,33 +34,9 @@ class _ManagePetsState extends State<ManagePets> {
   var position = ['Cat', 'Dog'];
   String selectedPosition = '';
   bool uploading = false;
-  PlatformFile? _pickedFile;
-
-  Future<void> getImage(StateSetter setDialogState) async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        type: FileType.custom,
-        allowedExtensions: ['jpeg', 'jpg', 'png'],
-      );
-
-      if (result != null) {
-        setDialogState(() {
-          _pickedFile = result.files.first;
-        });
-      } else {
-        return;
-      }
-    } catch (e) {
-      print("Error: $e");
-    }
-  }
 
   Future<Map<String, dynamic>> fetchPetData(String petId) async {
-    DocumentSnapshot snapshot = await FirebaseFirestore.instance
-        .collection('pet_table')
-        .doc(petId)
-        .get();
+    DocumentSnapshot snapshot = await FirebaseFirestore.instance.collection('pet_table').doc(petId).get();
 
     if (snapshot.exists) {
       return snapshot.data() as Map<String, dynamic>;
@@ -72,59 +45,42 @@ class _ManagePetsState extends State<ManagePets> {
     }
   }
 
-  Future<void> dataDisplay(
-      StateSetter setDialogState,
-      String imageName,
-      String petId,
-      TextEditingController petAgeController,
-      TextEditingController petNameController,
-      TextEditingController petBreedController,
-      TextEditingController petGenderController,
-      String selectedPosition) async {
-    if (_pickedFile == null) {
-      await FirebaseFirestore.instance
-          .collection('pet_table')
-          .doc(petId)
-          .update({
-        'age': petAgeController.text,
-        'name': petNameController.text,
-        'breed': petBreedController.text,
-        'gender': petGenderController.text,
-        'type': selectedPosition,
-      });
-    } else {
-      await FirebaseStorage.instance.ref().child('PET/$imageName').delete();
-      Reference ref = await FirebaseStorage.instance
-          .ref()
-          .child('PET/${_pickedFile!.name}');
-
-      final metadata = SettableMetadata(contentType: "image/jpeg");
-
-      UploadTask uploadTask = ref.putData(_pickedFile!.bytes!, metadata);
-      TaskSnapshot snapshot = await uploadTask.whenComplete(() {});
-
-      String downloadUrl = await snapshot.ref.getDownloadURL();
-      await FirebaseFirestore.instance
-          .collection('pet_table')
-          .doc(petId)
-          .update({
-        'image': downloadUrl,
-        'image_name': _pickedFile!.name,
-        'age': petAgeController.text,
-        'name': petNameController.text,
-        'breed': petBreedController.text,
-        'gender': petGenderController.text,
-        'type': selectedPosition,
-      });
-    }
+  final currentUser = FirebaseAuth.instance.currentUser!.uid;
+  List<String> serialNumber = [];
+  Future<List<String>> getSerial() async {
+    QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection("pet_table").where("user", isEqualTo: currentUser).get();
+    List<String> rulers = [];
+    snapshot.docs.forEach((doc) {
+      rulers.add(doc['serial_number']);
+    });
+    serialNumber = rulers;
+    return rulers;
   }
 
-  void dialogueShow(
-      String petName, String imageLink, String imageName, String petId) async {
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    getSerial();
+  }
+
+  Future<void> dataDisplay(StateSetter setDialogState, String petId, TextEditingController petAgeController, TextEditingController petNameController, TextEditingController petBreedController, TextEditingController petGenderController, String selectedPosition, TextEditingController petSerialController) async {
+    await FirebaseFirestore.instance.collection('pet_table').doc(petId).update({
+      'age': petAgeController.text,
+      'name': petNameController.text,
+      'breed': petBreedController.text,
+      'serial_number': petSerialController.text,
+      'gender': petGenderController.text,
+      'type': selectedPosition,
+    });
+  }
+
+  void dialogueShow(String petName, String petId) async {
     TextEditingController petNameController = TextEditingController();
     TextEditingController petAgeController = TextEditingController();
     TextEditingController petBreedController = TextEditingController();
     TextEditingController petGenderController = TextEditingController();
+    TextEditingController petSerialController = TextEditingController();
     String selectedPosition = '';
     var petData = await fetchPetData(petId);
     petNameController.text = petData['name'];
@@ -132,6 +88,7 @@ class _ManagePetsState extends State<ManagePets> {
     petBreedController.text = petData['breed'];
     petGenderController.text = petData['gender'];
     selectedPosition = petData['type'];
+    petSerialController.text = petData['serial_number'];
     await showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -155,22 +112,13 @@ class _ManagePetsState extends State<ManagePets> {
                             !ResponsiveWidget.isSmallScreen(context)
                                 ? Text(
                                     "Updating $petName",
-                                    style: TextStyle(
-                                        color: secondary,
-                                        fontSize:
-                                            !ResponsiveWidget.isSmallScreen(
-                                                    context)
-                                                ? 22
-                                                : 16),
+                                    style: TextStyle(color: secondary, fontSize: !ResponsiveWidget.isSmallScreen(context) ? 22 : 16),
                                   )
                                 : Container(
                                     constraints: BoxConstraints(maxWidth: 200),
                                     child: Text(
                                       "Updating $petName",
-                                      style: TextStyle(
-                                          color: secondary,
-                                          fontSize: 16,
-                                          overflow: TextOverflow.ellipsis),
+                                      style: TextStyle(color: secondary, fontSize: 16, overflow: TextOverflow.ellipsis),
                                     )),
                             InkWell(
                               onTap: () {
@@ -188,13 +136,11 @@ class _ManagePetsState extends State<ManagePets> {
                         ),
                         !ResponsiveWidget.isSmallScreen(context)
                             ? Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         const Text('Pet Name'),
                                         TextFormField(
@@ -219,8 +165,7 @@ class _ManagePetsState extends State<ManagePets> {
                                   ),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         const Text('Type of Breed'),
                                         TextFormField(
@@ -285,13 +230,11 @@ class _ManagePetsState extends State<ManagePets> {
                         ),
                         !ResponsiveWidget.isSmallScreen(context)
                             ? Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         const Text('Pet Age'),
                                         TextFormField(
@@ -316,8 +259,7 @@ class _ManagePetsState extends State<ManagePets> {
                                   ),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         const Text('Pet Gender'),
                                         TextFormField(
@@ -382,23 +324,18 @@ class _ManagePetsState extends State<ManagePets> {
                         ),
                         !ResponsiveWidget.isSmallScreen(context)
                             ? Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         const Text('Type of Pet'),
                                         const SizedBox(
                                           height: 8,
                                         ),
                                         FormDropDown(
-                                          Icon: const Icon(
-                                              FontAwesomeIcons.angleDown,
-                                              size: 16,
-                                              color: primary),
+                                          Icon: const Icon(FontAwesomeIcons.angleDown, size: 16, color: primary),
                                           fontSize: 16,
                                           dropColor: secondary,
                                           value: selectedPosition,
@@ -407,24 +344,19 @@ class _ManagePetsState extends State<ManagePets> {
                                               value: items,
                                               child: Text(
                                                 items,
-                                                style: const TextStyle(
-                                                    color: primary),
+                                                style: const TextStyle(color: primary),
                                               ),
                                             );
                                           }).toList(),
-                                          selectedItemBuilder:
-                                              (BuildContext context) {
+                                          selectedItemBuilder: (BuildContext context) {
                                             return position.map((String items) {
                                               return DropdownMenuItem(
                                                 value: items,
                                                 child: Container(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          left: 4),
+                                                  padding: const EdgeInsets.only(left: 4),
                                                   child: Text(
                                                     items,
-                                                    style: const TextStyle(
-                                                        color: primary),
+                                                    style: const TextStyle(color: primary),
                                                   ),
                                                 ),
                                               );
@@ -432,8 +364,7 @@ class _ManagePetsState extends State<ManagePets> {
                                           },
                                           onChanged: (newValue) {
                                             setState(() {
-                                              selectedPosition =
-                                                  newValue.toString();
+                                              selectedPosition = newValue.toString();
                                             });
                                           },
                                         ),
@@ -444,55 +375,24 @@ class _ManagePetsState extends State<ManagePets> {
                                     width: 30,
                                   ),
                                   Expanded(
-                                    child: Row(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('Pet Images'),
-                                            InkWell(
-                                              onTap: () async {
-                                                getImage(setDialogState);
-                                              },
-                                              child: Container(
-                                                  height: 50,
-                                                  width: 100,
-                                                  decoration: BoxDecoration(
-                                                    color: name,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4),
-                                                  ),
-                                                  child: const Icon(
-                                                    FontAwesomeIcons.plusCircle,
-                                                    color: primary,
-                                                  )),
-                                            ),
-                                          ],
+                                        const Text('Pet Collar Serial Number'),
+                                        TextFormField(
+                                          controller: petSerialController,
+                                          validator: (text) {
+                                            if (text == null || text.isEmpty) {
+                                              return "Pet Collar Serial Number is empty";
+                                            } else {
+                                              return null;
+                                            }
+                                          },
+                                          decoration: const InputDecoration(
+                                            border: UnderlineInputBorder(),
+                                            hintText: 'Enter your pet collar serial number',
+                                          ),
                                         ),
-                                        const SizedBox(
-                                          width: 10,
-                                        ),
-                                        (_pickedFile == null)
-                                            ? ClipOval(
-                                                child: Image.network(
-                                                  imageLink,
-                                                  width: 80.0,
-                                                  height: 80.0,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              )
-                                            : ClipOval(
-                                                child: Image.memory(
-                                                  Uint8List.fromList(
-                                                    _pickedFile!.bytes!,
-                                                  ),
-                                                  width: 100.0,
-                                                  height: 100.0,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              ),
                                       ],
                                     ),
                                   ),
@@ -506,8 +406,7 @@ class _ManagePetsState extends State<ManagePets> {
                                     height: 8,
                                   ),
                                   FormDropDown(
-                                    Icon: const Icon(FontAwesomeIcons.angleDown,
-                                        size: 16, color: primary),
+                                    Icon: const Icon(FontAwesomeIcons.angleDown, size: 16, color: primary),
                                     fontSize: 16,
                                     dropColor: secondary,
                                     value: selectedPosition,
@@ -516,23 +415,19 @@ class _ManagePetsState extends State<ManagePets> {
                                         value: items,
                                         child: Text(
                                           items,
-                                          style:
-                                              const TextStyle(color: primary),
+                                          style: const TextStyle(color: primary),
                                         ),
                                       );
                                     }).toList(),
-                                    selectedItemBuilder:
-                                        (BuildContext context) {
+                                    selectedItemBuilder: (BuildContext context) {
                                       return position.map((String items) {
                                         return DropdownMenuItem(
                                           value: items,
                                           child: Container(
-                                            padding:
-                                                const EdgeInsets.only(left: 4),
+                                            padding: const EdgeInsets.only(left: 4),
                                             child: Text(
                                               items,
-                                              style: const TextStyle(
-                                                  color: primary),
+                                              style: const TextStyle(color: primary),
                                             ),
                                           ),
                                         );
@@ -544,62 +439,6 @@ class _ManagePetsState extends State<ManagePets> {
                                       });
                                     },
                                   ),
-                                  SizedBox(
-                                    height: 10,
-                                  ),
-                                  Row(
-                                    children: [
-                                      Column(
-                                        children: [
-                                          const Text('Pet Images'),
-                                          InkWell(
-                                            onTap: () async {
-                                              getImage(setDialogState);
-                                            },
-                                            child: Container(
-                                                height: 50,
-                                                width: 100,
-                                                decoration: BoxDecoration(
-                                                  color: name,
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                child: const Icon(
-                                                  FontAwesomeIcons.plusCircle,
-                                                  color: primary,
-                                                )),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(
-                                        width: 10,
-                                      ),Column(
-                                        children: [
-                                          SizedBox(height: 10,),
-                                           (_pickedFile == null)
-                                          ? ClipOval(
-                                              child: Image.network(
-                                                imageLink,
-                                                width: 80.0,
-                                                height: 80.0,
-                                                fit: BoxFit.cover,
-                                              ),
-                                            )
-                                          : ClipOval(
-                                              child: Image.memory(
-                                                Uint8List.fromList(
-                                                  _pickedFile!.bytes!,
-                                                ),
-                                                width: 100.0,
-                                                height: 100.0,
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                        ],
-                                      )
-                                     
-                                    ],
-                                  ),
                                 ],
                               ),
                         const SizedBox(
@@ -609,18 +448,38 @@ class _ManagePetsState extends State<ManagePets> {
                           child: InkWell(
                             onTap: () async {
                               if (formKey.currentState!.validate()) {
+                                if (serialNumber.contains(petSerialController.text)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text("Serial Number already Exists",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: red,
+                                            fontWeight: FontWeight.w400,
+                                          )),
+                                      backgroundColor: spot_red,
+                                      behavior: SnackBarBehavior.floating,
+                                      margin: EdgeInsets.only(
+                                        bottom: MediaQuery.of(context).size.height - 100,
+                                        left: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
+                                        right: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
+                                      ),
+                                      action: SnackBarAction(
+                                        label: 'X',
+                                        textColor: secondary,
+                                        onPressed: () {
+                                          // Some code to undo the change.
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
                                 setDialogState(() {
                                   uploading = true;
                                 });
-                                await dataDisplay(
-                                    setDialogState,
-                                    imageName,
-                                    petId,
-                                    petAgeController,
-                                    petNameController,
-                                    petBreedController,
-                                    petGenderController,
-                                    selectedPosition);
+
+                                await dataDisplay(setDialogState, petId, petAgeController, petNameController, petBreedController, petGenderController, selectedPosition, petSerialController);
 
                                 setDialogState(() {
                                   uploading = false;
@@ -628,27 +487,18 @@ class _ManagePetsState extends State<ManagePets> {
                                 context.pop();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content:
-                                        const Text("Pet Successfully Updated",
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: notification,
-                                              fontWeight: FontWeight.w400,
-                                            )),
+                                    content: const Text("Pet Successfully Updated",
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: notification,
+                                          fontWeight: FontWeight.w400,
+                                        )),
                                     backgroundColor: snackbar,
                                     behavior: SnackBarBehavior.floating,
                                     margin: EdgeInsets.only(
-                                      bottom:
-                                          MediaQuery.of(context).size.height -
-                                              100,
-                                      left: !ResponsiveWidget.isSmallScreen(
-                                              context)
-                                          ? 300
-                                          : 30,
-                                      right: !ResponsiveWidget.isSmallScreen(
-                                              context)
-                                          ? 300
-                                          : 30,
+                                      bottom: MediaQuery.of(context).size.height - 100,
+                                      left: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
+                                      right: !ResponsiveWidget.isSmallScreen(context) ? 300 : 30,
                                     ),
                                     action: SnackBarAction(
                                       label: 'X',
@@ -664,14 +514,11 @@ class _ManagePetsState extends State<ManagePets> {
                             child: Container(
                               width: 250,
                               height: 40,
-                              decoration: BoxDecoration(
-                                  color: secondary,
-                                  borderRadius: BorderRadius.circular(5)),
+                              decoration: BoxDecoration(color: secondary, borderRadius: BorderRadius.circular(5)),
                               child: Center(
                                 child: (uploading == true)
                                     ? const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                        mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
                                           Text(
                                             "Please Wait...",
@@ -703,19 +550,13 @@ class _ManagePetsState extends State<ManagePets> {
     );
   }
 
-  Future<void> deletePet(
-      StateSetter setDialogState, String petName, String petId) async {
+  Future<void> deletePet(StateSetter setDialogState,String petId) async {
     try {
       setDialogState(() {
         uploading = true;
       });
-      await FirebaseFirestore.instance
-          .collection('pet_table')
-          .doc(petId)
-          .delete();
+      await FirebaseFirestore.instance.collection('pet_table').doc(petId).delete();
 
-      // Delete file from Firebase Storage
-      await FirebaseStorage.instance.ref().child('PET/$petName').delete();
       context.pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -749,7 +590,7 @@ class _ManagePetsState extends State<ManagePets> {
     }
   }
 
-  void deletionPet(String petName, String petId, String petImage) async {
+  void deletionPet(String petName, String petId) async {
     await showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -772,12 +613,7 @@ class _ManagePetsState extends State<ManagePets> {
                           children: [
                             Text(
                               "Deleting ${petName}",
-                              style: TextStyle(
-                                  color: secondary,
-                                  fontSize:
-                                      !ResponsiveWidget.isSmallScreen(context)
-                                          ? 22
-                                          : 16),
+                              style: TextStyle(color: secondary, fontSize: !ResponsiveWidget.isSmallScreen(context) ? 22 : 16),
                             ),
                             InkWell(
                               onTap: () {
@@ -795,8 +631,7 @@ class _ManagePetsState extends State<ManagePets> {
                         ),
                         Text(
                           "Are you sure you want to delete ${petName}? if you click yes you cannot undo it",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 16),
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                         ),
                       ],
                     ),
@@ -808,15 +643,8 @@ class _ManagePetsState extends State<ManagePets> {
                             context.pop();
                           },
                           child: Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal:
-                                    !ResponsiveWidget.isSmallScreen(context)
-                                        ? 25
-                                        : 15,
-                                vertical: 10),
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: secondary),
+                            padding: EdgeInsets.symmetric(horizontal: !ResponsiveWidget.isSmallScreen(context) ? 25 : 15, vertical: 10),
+                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: secondary),
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               mainAxisSize: MainAxisSize.max,
@@ -835,24 +663,16 @@ class _ManagePetsState extends State<ManagePets> {
                         ),
                         InkWell(
                           onTap: () async {
-                            await deletePet(setDialogState, petImage, petId);
+                            await deletePet(setDialogState, petId);
                           },
                           child: Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal:
-                                    !ResponsiveWidget.isSmallScreen(context)
-                                        ? 25
-                                        : 15,
-                                vertical: 10),
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: thirdly),
+                            padding: EdgeInsets.symmetric(horizontal: !ResponsiveWidget.isSmallScreen(context) ? 25 : 15, vertical: 10),
+                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: thirdly),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               mainAxisSize: MainAxisSize.max,
                               children: [
-                                const Icon(Icons.delete,
-                                    color: primary, size: 15),
+                                const Icon(Icons.delete, color: primary, size: 15),
                                 const SizedBox(
                                   width: 10,
                                 ),
@@ -863,11 +683,7 @@ class _ManagePetsState extends State<ManagePets> {
                                             "Please Wait...",
                                             style: TextStyle(color: primary),
                                           ),
-                                          SizedBox(
-                                              height: 20,
-                                              width: 20,
-                                              child:
-                                                  CircularProgressIndicator()),
+                                          SizedBox(height: 20, width: 20, child: CircularProgressIndicator()),
                                         ],
                                       )
                                     : const Text(
@@ -892,9 +708,7 @@ class _ManagePetsState extends State<ManagePets> {
   Widget build(BuildContext context) {
     return Scaffold(
         key: scaffoldKey,
-        appBar: ResponsiveWidget.isSmallScreen(context)
-            ? topNavigationBar(context, scaffoldKey, 'Manage Pets')
-            : null,
+        appBar: ResponsiveWidget.isSmallScreen(context) ? topNavigationBar(context, scaffoldKey, 'Manage Pets') : null,
         drawer: const BigNav(currentPage: 'pet_update'),
         body: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -902,30 +716,23 @@ class _ManagePetsState extends State<ManagePets> {
             if (ResponsiveWidget.isLargeScreen(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isLargeScreen(context)
-                    ? const BigNav(currentPage: 'pet_update')
-                    : null,
+                child: ResponsiveWidget.isLargeScreen(context) ? const BigNav(currentPage: 'pet_update') : null,
               )),
-            if (ResponsiveWidget.isMediumScreen(context))
+            if (ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context))
               Expanded(
                   child: Container(
-                child: ResponsiveWidget.isMediumScreen(context)
-                    ? const SmallNav(currentPage: 'pet_update')
-                    : null,
+                child: ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context) ? const SmallNav(currentPage: 'pet_update') : null,
               )),
             Expanded(
                 flex: ResponsiveWidget.isLargeScreen(context) ? 5 : 7,
                 child: SingleChildScrollView(
                   child: Container(
                     margin: ResponsiveWidget.isLargeScreen(context)
-                        ? const EdgeInsets.symmetric(
-                            vertical: 50, horizontal: 120)
-                        : ResponsiveWidget.isMediumScreen(context)
-                            ? const EdgeInsets.symmetric(
-                                vertical: 50, horizontal: 100)
+                        ? const EdgeInsets.symmetric(vertical: 50, horizontal: 120)
+                        : ResponsiveWidget.isMediumScreen(context) || ResponsiveWidget.isCustomSize(context)
+                            ? const EdgeInsets.symmetric(vertical: 50, horizontal: 100)
                             : ResponsiveWidget.isSmallScreen(context)
-                                ? const EdgeInsets.symmetric(
-                                    vertical: 20, horizontal: 20)
+                                ? const EdgeInsets.symmetric(vertical: 20, horizontal: 20)
                                 : null,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.start,
@@ -943,13 +750,9 @@ class _ManagePetsState extends State<ManagePets> {
                           height: 25,
                         ),
                         StreamBuilder(
-                            stream: FirebaseFirestore.instance
-                                .collection("pet_table")
-                                .orderBy("date", descending: true)
-                                .snapshots(),
+                            stream: FirebaseFirestore.instance.collection("pet_table").orderBy("date", descending: true).snapshots(),
                             builder: ((context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
                                 return const Center(
                                   child: CircularProgressIndicator(
                                     color: secondary,
@@ -958,8 +761,6 @@ class _ManagePetsState extends State<ManagePets> {
                               }
                               var pets = snapshot.data!.docs.map((item) {
                                 return {
-                                  'image': item['image'],
-                                  'image_name': item['image_name'],
                                   'name': item['name'],
                                   'age': item['age'],
                                   'breed': item['breed'],
@@ -967,6 +768,7 @@ class _ManagePetsState extends State<ManagePets> {
                                   'type': item['type'],
                                   'date': item['date'],
                                   'user': item['user'],
+                                  'serial_number': item['serial_number'],
                                   'id': item.id,
                                 };
                               }).toList();
@@ -977,19 +779,14 @@ class _ManagePetsState extends State<ManagePets> {
                               if (pets.isEmpty) {
                                 return Container(
                                     width: MediaQuery.of(context).size.width,
-                                    height: MediaQuery.of(context).size.height -
-                                        200,
+                                    height: MediaQuery.of(context).size.height - 200,
                                     child: const Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
                                         Text(
                                           "No Pet has been added yet",
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 20),
+                                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
                                         ),
                                       ],
                                     ));
@@ -997,216 +794,102 @@ class _ManagePetsState extends State<ManagePets> {
 
                               return SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
-                                child: Container(
-                                  child: Column(
-                                    children: [
-                                      DataTable(
-                                          headingRowColor:
-                                              MaterialStateColor.resolveWith(
-                                                  (states) => secondary),
-                                          dataRowHeight: 100,
-                                          columns: const [
-                                            DataColumn(
-                                              label: Text('Pet name',
-                                                  style: TextStyle(
-                                                      fontSize: 16,
-                                                      color: primary)),
-                                            ),
-                                            DataColumn(
-                                              label: Text('Pet image',
-                                                  style: TextStyle(
-                                                      color: primary,
-                                                      fontSize: 16)),
-                                            ),
-                                            DataColumn(
-                                              label: Text('Pet age',
-                                                  style: TextStyle(
-                                                      color: primary,
-                                                      fontSize: 16)),
-                                            ),
-                                            DataColumn(
-                                              label: Text('Pet type',
-                                                  style: TextStyle(
-                                                      color: primary,
-                                                      fontSize: 16)),
-                                            ),
-                                            DataColumn(
-                                              label: Text('Pet gender',
-                                                  style: TextStyle(
-                                                      color: primary,
-                                                      fontSize: 16)),
-                                            ),
-                                            DataColumn(
-                                              label: Text('Pet breed',
-                                                  style: TextStyle(
-                                                      color: primary,
-                                                      fontSize: 16)),
-                                            ),
-                                            DataColumn(
-                                              label: Text('Date Created',
-                                                  style: TextStyle(
-                                                      color: primary,
-                                                      fontSize: 16)),
-                                            ),
-                                            DataColumn(
-                                              label: Text('Action',
-                                                  style: TextStyle(
-                                                      color: primary,
-                                                      fontSize: 16)),
-                                            ),
-                                            DataColumn(
-                                              label: Text(''),
-                                            ),
-                                          ],
-                                          rows: pet.map((users) {
-                                            selectedPosition = users['type'];
-                                            return DataRow(
-                                              cells: [
-                                                DataCell(Text(
-                                                  users['name'],
-                                                  style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w600),
-                                                )),
-                                                DataCell(InkWell(
-                                                  onTap: () {
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (BuildContext
-                                                          context) {
-                                                        return AlertDialog(
-                                                          backgroundColor:
-                                                              primary,
-                                                          shape:
-                                                              RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        5.0),
-                                                          ),
-                                                          content:
-                                                              SingleChildScrollView(
-                                                            child: Container(
-                                                              height: !ResponsiveWidget
-                                                                      .isSmallScreen(
-                                                                          context)
-                                                                  ? 350
-                                                                  : 200,
-                                                              width: 600,
-                                                              child: Column(
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment
-                                                                        .start,
-                                                                children: [
-                                                                  Row(
-                                                                    mainAxisAlignment:
-                                                                        MainAxisAlignment
-                                                                            .spaceBetween,
-                                                                    children: [
-                                                                      Text(
-                                                                        "View ${users['name']}",
-                                                                        style: const TextStyle(
-                                                                            fontWeight:
-                                                                                FontWeight.w700,
-                                                                            fontSize: 20),
-                                                                      ),
-                                                                      InkWell(
-                                                                          onTap:
-                                                                              () {
-                                                                            context.pop();
-                                                                          },
-                                                                          child:
-                                                                              const Icon(Icons.close))
-                                                                    ],
-                                                                  ),
-                                                                  const SizedBox(
-                                                                    height: 20,
-                                                                  ),
-                                                                  Image.network(
-                                                                    users[
-                                                                        'image'],
-                                                                    height: 300,
-                                                                    width: double
-                                                                        .infinity,
-                                                                  )
-                                                                ],
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                    );
+                                child: Column(
+                                  children: [
+                                    DataTable(
+                                        headingRowColor: MaterialStateColor.resolveWith((states) => secondary),
+                                        dataRowHeight: 100,
+                                        columns: const [
+                                          DataColumn(
+                                            label: Text('Pet name', style: TextStyle(fontSize: 16, color: primary)),
+                                          ),
+                                          DataColumn(
+                                            label: Text('Pet age', style: TextStyle(color: primary, fontSize: 16)),
+                                          ),
+                                          DataColumn(
+                                            label: Text('Pet type', style: TextStyle(color: primary, fontSize: 16)),
+                                          ),
+                                          DataColumn(
+                                            label: Text('Pet gender', style: TextStyle(color: primary, fontSize: 16)),
+                                          ),
+                                          DataColumn(
+                                            label: Text('Pet breed', style: TextStyle(color: primary, fontSize: 16)),
+                                          ),
+                                          DataColumn(
+                                            label: Text('Pet collar serial number', style: TextStyle(color: primary, fontSize: 16)),
+                                          ),
+                                          DataColumn(
+                                            label: Text('Date Created', style: TextStyle(color: primary, fontSize: 16)),
+                                          ),
+                                          DataColumn(
+                                            label: Text('Action', style: TextStyle(color: primary, fontSize: 16)),
+                                          ),
+                                          DataColumn(
+                                            label: Text(''),
+                                          ),
+                                        ],
+                                        rows: pet.map((users) {
+                                          selectedPosition = users['type'];
+                                          return DataRow(
+                                            cells: [
+                                              DataCell(Text(
+                                                users['name'],
+                                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                              )),
+                                              DataCell(Text(users['age'])),
+                                              DataCell(Text(users['type'])),
+                                              DataCell(Text(users['gender'])),
+                                              DataCell(Text(users['breed'])),
+                                              DataCell(Text(users['serial_number'])),
+                                              DataCell(Text(formatDate(users['date']))),
+                                              DataCell(
+                                                InkWell(
+                                                  onTap: () async {
+                                                    dialogueShow(users['name'], users['id']);
                                                   },
-                                                  child: CircleAvatar(
-                                                    backgroundImage:
-                                                        NetworkImage(
-                                                            users['image']),
-                                                    radius: 30,
-                                                  ),
-                                                )),
-                                                DataCell(Text(users['age'])),
-                                                DataCell(Text(users['type'])),
-                                                DataCell(Text(users['gender'])),
-                                                DataCell(Text(users['breed'])),
-                                                DataCell(Text(
-                                                    formatDate(users['date']))),
-                                                DataCell(
-                                                  InkWell(
-                                                    onTap: () async {
-                                                      dialogueShow(
-                                                          users['name'],
-                                                          users['image'],
-                                                          users['image_name'],
-                                                          users['id']);
-                                                    },
-                                                    child: const Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.edit,
-                                                          color:
-                                                              Color(0xFF585858),
+                                                  child: const Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.edit,
+                                                        color: Color(0xFF585858),
+                                                      ),
+                                                      SizedBox(width: 5),
+                                                      Text(
+                                                        'Edit User',
+                                                        style: TextStyle(
+                                                          color: Colors.blue,
                                                         ),
-                                                        SizedBox(width: 5),
-                                                        Text(
-                                                          'Edit User',
-                                                          style: TextStyle(
-                                                            color: Colors.blue,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
-                                                DataCell(
-                                                  InkWell(
-                                                    onTap: () async {
-                                                      deletionPet(
-                                                          users['name'],
-                                                          users['id'],
-                                                          users['image_name']);
-                                                    },
-                                                    child: const Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.delete,
+                                              ),
+                                              DataCell(
+                                                InkWell(
+                                                  onTap: () async {
+                                                    deletionPet(users['name'], users['id']);
+                                                  },
+                                                  child: const Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.delete,
+                                                        color: Colors.red,
+                                                      ),
+                                                      SizedBox(width: 5),
+                                                      Text(
+                                                        'Delete User',
+                                                        style: TextStyle(
                                                           color: Colors.red,
                                                         ),
-                                                        SizedBox(width: 5),
-                                                        Text(
-                                                          'Delete User',
-                                                          style: TextStyle(
-                                                            color: Colors.red,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
-                                              ],
-                                            );
-                                          }).toList()),
-                                    ],
-                                  ),
+                                              ),
+                                            ],
+                                          );
+                                        }).toList()),
+                                  ],
                                 ),
                               );
                             })),
