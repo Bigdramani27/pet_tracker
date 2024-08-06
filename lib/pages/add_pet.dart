@@ -52,7 +52,7 @@ class _AddNewPetState extends State<AddNewPet> {
   final currentUser = FirebaseAuth.instance.currentUser!.uid;
   List<String> serialNumber = [];
   Future<List<String>> getSerial() async {
-    QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection("pet_table").where("user", isEqualTo: currentUser).get();
+    QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection("pet_table").get();
     List<String> rulers = [];
     snapshot.docs.forEach((doc) {
       rulers.add(doc['serial_number']);

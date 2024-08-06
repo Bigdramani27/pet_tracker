@@ -37,6 +37,24 @@ class _AllNotificationsState extends State<AllNotifications> {
     return rulers;
   }
 
+  String petType = "";
+
+  Future<void> fetchSerial() async {
+    try {
+      QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection("pet_table").where("serial_number", isEqualTo: "kelpetNumber1").get();
+
+      if (snapshot.docs.length == 1) {
+        var doc = snapshot.docs[0];
+        var userData = doc.data();
+        petType = userData['type'];
+      } else {
+        petType = "";
+      }
+    } catch (e) {
+      print('Error fetching data: $e');
+    }
+  }
+
   late Stream<QuerySnapshot<Map<String, dynamic>>> temp;
   late Stream<QuerySnapshot<Map<String, dynamic>>> collar;
   late Stream<QuerySnapshot<Map<String, dynamic>>> heart;
@@ -44,6 +62,7 @@ class _AllNotificationsState extends State<AllNotifications> {
   void initState() {
     // TODO: implement initState
     super.initState();
+    fetchSerial();
     _initializeData();
     temp = FirebaseFirestore.instance.collection("temperature_reading").orderBy("time", descending: true).snapshots();
     collar = FirebaseFirestore.instance.collection("collar_battery").orderBy("time", descending: true).snapshots();
@@ -372,7 +391,7 @@ class _AllNotificationsState extends State<AllNotifications> {
                                   ),
                                 ),
                                 TextSpan(text: '  healthy', style: TextStyle(color: green, fontWeight: FontWeight.w700)),
-                                TextSpan(text: ' sign indicates that your pet heart rate is in an excellent condition. Its heart rate is between 140-220'),
+                                TextSpan(text: ' sign indicates that your pet heart rate is in an excellent condition. Its heart rate is between 140-220bpm for cat & 120 -180 bpm'),
                               ],
                             ),
                           ),
@@ -392,7 +411,7 @@ class _AllNotificationsState extends State<AllNotifications> {
                                   ),
                                 ),
                                 TextSpan(text: '  abnormal', style: TextStyle(color: line, fontWeight: FontWeight.w700)),
-                                TextSpan(text: ' sign indicates that your pet is not well and we recommend you to check our health tips for some guidelines. Its temperature is below 38'),
+                                TextSpan(text: ' sign indicates that your pet is not well and we recommend you to check our health tips for some guidelines. Its temperature is below 38 degrees'),
                               ],
                             ),
                           ),
@@ -533,12 +552,25 @@ class _AllNotificationsState extends State<AllNotifications> {
                                           var level = item['temperature'];
 
                                           String tempLevel;
-                                          if (level < 38) {
-                                            tempLevel = 'Abnormal';
-                                          } else if (level >= 40) {
-                                            tempLevel = 'Danger';
+
+                                          if (petType == "Dog") {
+                                            if (level >= 38.3 && level <= 39.2) {
+                                              tempLevel = 'Healthy';
+                                            } else if (level < 39.3) {
+                                              tempLevel = 'Abnormal';
+                                            } else {
+                                              tempLevel = 'Danger';
+                                            }
+                                          } else if (petType == "Cat") {
+                                            if (level >= 38.1 && level <= 39.2) {
+                                              tempLevel = 'Healthy';
+                                            } else if (level < 39.3) {
+                                              tempLevel = 'Abnormal';
+                                            } else {
+                                              tempLevel = 'Danger';
+                                            }
                                           } else {
-                                            tempLevel = 'Healthy';
+                                            tempLevel = "";
                                           }
                                           var formattedTime = DateFormat.yMMMMd().add_jm().format(item['time'].toDate());
                                           return {"temp": tempLevel, "time": formattedTime, "serial": item['serial_number'], "deleted": item['deleted'], "id": item.id};
@@ -553,12 +585,24 @@ class _AllNotificationsState extends State<AllNotifications> {
                                           var rate = item['heart_rate'];
 
                                           String heartLevel;
-                                          if (rate < 220) {
-                                            heartLevel = 'Abnormal';
-                                          } else if (rate >= 140) {
-                                            heartLevel = 'Danger';
+                                          if (petType == "Dog") {
+                                            if (rate < 120) {
+                                              heartLevel = 'Abnormal';
+                                            } else if (rate >= 180) {
+                                              heartLevel = 'Danger';
+                                            } else {
+                                              heartLevel = 'Healthy';
+                                            }
+                                          } else if (petType == "Cat") {
+                                            if (rate < 140) {
+                                              heartLevel = 'Abnormal';
+                                            } else if (rate >= 220) {
+                                              heartLevel = 'Danger';
+                                            } else {
+                                              heartLevel = 'Healthy';
+                                            }
                                           } else {
-                                            heartLevel = 'Healthy';
+                                            heartLevel = "";
                                           }
                                           var formattedTime = DateFormat.yMMMMd().add_jm().format(item['time'].toDate());
                                           return {"heart": heartLevel, "time": formattedTime, "serial": item['serial_number'], "deleted": item['deleted'], "id": item.id};
@@ -707,7 +751,7 @@ class _AllNotificationsState extends State<AllNotifications> {
                                                                                     );
                                                                                   },
                                                                                   child: Container(
-                                                                                       padding: EdgeInsets.symmetric(horizontal: !ResponsiveWidget.isSmallScreen(context) ? 25 : 15, vertical: 10),
+                                                                                      padding: EdgeInsets.symmetric(horizontal: !ResponsiveWidget.isSmallScreen(context) ? 25 : 15, vertical: 10),
                                                                                       decoration: BoxDecoration(color: red, borderRadius: BorderRadius.circular(8)),
                                                                                       child: (loading == true)
                                                                                           ? const Row(

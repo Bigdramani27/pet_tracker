@@ -36,9 +36,28 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
   late Stream<QuerySnapshot<Map<String, dynamic>>> heart;
   late Stream<QuerySnapshot<Map<String, dynamic>>> activity;
   late Stream<QuerySnapshot<Map<String, dynamic>>> variability;
+  String petType = "";
+
+  Future<void> fetchSerial() async {
+    try {
+      QuerySnapshot<Map<String, dynamic>> snapshot = await FirebaseFirestore.instance.collection("pet_table").where("serial_number", isEqualTo: "kelpetNumber1").get();
+
+      if (snapshot.docs.length == 1) {
+        var doc = snapshot.docs[0];
+        var userData = doc.data();
+        petType = userData['type'];
+      } else {
+        petType = "";
+      }
+    } catch (e) {
+      print('Error fetching data: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    fetchSerial();
     _initializeData();
     _tabController = TabController(length: 4, vsync: this);
     temp = FirebaseFirestore.instance.collection("temperature_reading").orderBy("time", descending: false).snapshots();
@@ -368,9 +387,31 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                               var overallData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number'])).toList();
                                               var averageTemperatureToday = calculateAverageTemperature(todayData);
                                               var averageTemperatureYesterday = calculateAverageTemperature(yesterdayData);
-
+                                              averageTemperatureToday = double.parse(averageTemperatureToday.toStringAsFixed(2));
+                                              averageTemperatureYesterday = double.parse(averageTemperatureYesterday.toStringAsFixed(2));
                                               double averageTemperatureOverall = calculateAverageTemperature(overallData);
                                               averageTemperatureOverall = double.parse(averageTemperatureOverall.toStringAsFixed(2));
+                                              String tempLevel;
+
+                                              if (petType == "Dog") {
+                                                if (averageTemperatureOverall >= 38.3 && averageTemperatureOverall <= 39.2) {
+                                                  tempLevel = 'Healthy';
+                                                } else if (averageTemperatureOverall < 39.3) {
+                                                  tempLevel = 'Abnormal';
+                                                } else {
+                                                  tempLevel = 'Danger';
+                                                }
+                                              } else if (petType == "Cat") {
+                                                if (averageTemperatureOverall >= 38.1 && averageTemperatureOverall <= 39.2) {
+                                                  tempLevel = 'Healthy';
+                                                } else if (averageTemperatureOverall < 39.3) {
+                                                  tempLevel = 'Abnormal';
+                                                } else {
+                                                  tempLevel = 'Danger';
+                                                }
+                                              } else {
+                                                tempLevel = "";
+                                              }
 
                                               List<SalesData> chartTemp = [];
                                               Map<String, List<double>> dailyAverages = {};
@@ -402,7 +443,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureYesterday',
+                                                                  Text('$averageTemperatureYesterday deg',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -417,7 +458,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureToday',
+                                                                  Text('$averageTemperatureToday deg',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -432,7 +473,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureOverall',
+                                                                  Text('$averageTemperatureOverall deg',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -481,10 +522,16 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             margin: const EdgeInsets.only(left: 80),
                                                             height: 10,
                                                             width: 20,
-                                                            color: line,
+                                                            color: tempLevel == "Healthy"
+                                                                ? green
+                                                                : tempLevel == "Abnormal"
+                                                                    ? line
+                                                                    : tempLevel == "Danger"
+                                                                        ? red
+                                                                        : null,
                                                           ),
                                                           const SizedBox(width: 5),
-                                                          const Text("Overall"),
+                                                          Text(tempLevel),
                                                         ],
                                                       ),
                                                     ],
@@ -538,8 +585,31 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                               var overallData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number'])).toList();
                                               var averageTemperatureToday = calculateAverageTemperature(todayData);
                                               var averageTemperatureYesterday = calculateAverageTemperature(yesterdayData);
+                                              averageTemperatureToday = double.parse(averageTemperatureToday.toStringAsFixed(2));
+                                              averageTemperatureYesterday = double.parse(averageTemperatureYesterday.toStringAsFixed(2));
                                               double averageTemperatureOverall = calculateAverageTemperature(overallData);
                                               averageTemperatureOverall = double.parse(averageTemperatureOverall.toStringAsFixed(2));
+                                              String heartLevel;
+
+                                              if (petType == "Dog") {
+                                                if (averageTemperatureOverall < 120) {
+                                                  heartLevel = 'Abnormal';
+                                                } else if (averageTemperatureOverall >= 180) {
+                                                  heartLevel = 'Danger';
+                                                } else {
+                                                  heartLevel = 'Healthy';
+                                                }
+                                              } else if (petType == "Cat") {
+                                                if (averageTemperatureOverall < 140) {
+                                                  heartLevel = 'Abnormal';
+                                                } else if (averageTemperatureOverall >= 220) {
+                                                  heartLevel = 'Danger';
+                                                } else {
+                                                  heartLevel = 'Healthy';
+                                                }
+                                              } else {
+                                                heartLevel = "";
+                                              }
 
                                               List<SalesData> chartHeart = [];
                                               Map<String, List<double>> dailyAverages = {};
@@ -570,7 +640,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureYesterday',
+                                                                  Text('$averageTemperatureYesterday ms',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -585,7 +655,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureToday',
+                                                                  Text('$averageTemperatureToday ms',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -600,7 +670,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureOverall',
+                                                                  Text('$averageTemperatureOverall ms',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -649,10 +719,16 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             margin: const EdgeInsets.only(left: 80),
                                                             height: 10,
                                                             width: 20,
-                                                            color: line,
+                                                            color: heartLevel == "Healthy"
+                                                                ? green
+                                                                : heartLevel == "Abnormal"
+                                                                    ? line
+                                                                    : heartLevel == "Danger"
+                                                                        ? red
+                                                                        : null,
                                                           ),
                                                           const SizedBox(width: 5),
-                                                          const Text("Overall"),
+                                                          Text(heartLevel),
                                                         ],
                                                       ),
                                                     ],
@@ -724,8 +800,23 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
 
                                               double averageMagnitudeToday = calculateAverageMagnitude(todayData);
                                               double averageMagnitudeYesterday = calculateAverageMagnitude(yesterdayData);
+                                              averageMagnitudeToday = double.parse(averageMagnitudeToday.toStringAsFixed(2));
+                                              averageMagnitudeYesterday = double.parse(averageMagnitudeYesterday.toStringAsFixed(2));
                                               double averageMagnitudeOverall = calculateAverageMagnitude(overallData);
+
                                               averageMagnitudeOverall = double.parse(averageMagnitudeOverall.toStringAsFixed(2));
+
+                                              String activityLevel;
+
+                                              if (averageMagnitudeOverall >= 0.5 && averageMagnitudeOverall < 1.5) {
+                                                activityLevel = 'Mini-Active';
+                                              } else if (averageMagnitudeOverall >= 0 && averageMagnitudeOverall < 0.5) {
+                                                activityLevel = 'Inactive';
+                                              } else if (averageMagnitudeOverall >= 1.5) {
+                                                activityLevel = 'Active';
+                                              } else {
+                                                activityLevel = '';
+                                              }
 
                                               List<SalesData> chartActivity = [];
                                               Map<String, List<double>> dailyAverages = {};
@@ -757,7 +848,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageMagnitudeYesterday',
+                                                                  Text('$averageMagnitudeYesterday mag',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -772,7 +863,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageMagnitudeToday',
+                                                                  Text('$averageMagnitudeToday mag',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -787,7 +878,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageMagnitudeOverall',
+                                                                  Text('$averageMagnitudeOverall mag',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -836,10 +927,16 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             margin: const EdgeInsets.only(left: 80),
                                                             height: 10,
                                                             width: 20,
-                                                            color: line,
+                                                            color: activityLevel == "Active"
+                                                                ? green
+                                                                : activityLevel == "Mini-Active"
+                                                                    ? line
+                                                                    : activityLevel == "Inactive"
+                                                                        ? red
+                                                                        : null,
                                                           ),
                                                           const SizedBox(width: 5),
-                                                          const Text("Overall"),
+                                                          Text(activityLevel),
                                                         ],
                                                       ),
                                                     ],
@@ -893,8 +990,32 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                               var overallData = snapshot.data!.docs.where((item) => serialNumber.contains(item['serial_number'])).toList();
                                               var averageTemperatureToday = calculateAverageTemperature(todayData);
                                               var averageTemperatureYesterday = calculateAverageTemperature(yesterdayData);
+                                              averageTemperatureToday = double.parse(averageTemperatureToday.toStringAsFixed(2));
+                                              averageTemperatureYesterday = double.parse(averageTemperatureYesterday.toStringAsFixed(2));
                                               double averageTemperatureOverall = calculateAverageTemperature(overallData);
                                               averageTemperatureOverall = double.parse(averageTemperatureOverall.toStringAsFixed(2));
+
+                                              String hrvLevel;
+
+                                              if (petType == "Dog") {
+                                                if (averageTemperatureOverall < 60) {
+                                                  hrvLevel = 'Abnormal';
+                                                } else if (averageTemperatureOverall >= 140) {
+                                                  hrvLevel = 'Danger';
+                                                } else {
+                                                  hrvLevel = 'Healthy';
+                                                }
+                                              } else if (petType == "Cat") {
+                                                if (averageTemperatureOverall < 159) {
+                                                  hrvLevel = 'Abnormal';
+                                                } else if (averageTemperatureOverall >= 206) {
+                                                  hrvLevel = 'Danger';
+                                                } else {
+                                                  hrvLevel = 'Healthy';
+                                                }
+                                              } else {
+                                                hrvLevel = "";
+                                              }
 
                                               List<SalesData> chartHeart = [];
                                               Map<String, List<double>> dailyAverages = {};
@@ -925,7 +1046,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureYesterday',
+                                                                  Text('$averageTemperatureYesterday ms',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -940,7 +1061,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureToday',
+                                                                  Text('$averageTemperatureToday ms',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -955,7 +1076,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureOverall',
+                                                                  Text('$averageTemperatureOverall ms',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -1004,10 +1125,16 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             margin: const EdgeInsets.only(left: 80),
                                                             height: 10,
                                                             width: 20,
-                                                            color: line,
+                                                            color: hrvLevel == "Healthy"
+                                                                ? green
+                                                                : hrvLevel == "Abnormal"
+                                                                    ? line
+                                                                    : hrvLevel == "Danger"
+                                                                        ? red
+                                                                        : null,
                                                           ),
                                                           const SizedBox(width: 5),
-                                                          const Text("Overall"),
+                                                          Text(hrvLevel),
                                                         ],
                                                       ),
                                                     ],

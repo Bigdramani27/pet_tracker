@@ -95,7 +95,7 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
         content: Container(
           width: 600,
           child: const Text(
-              "To continue, kindly close the app and reopen it and allow the device to use your location"),
+              "You are seeing this cause your location is turned off. Kindly turn it on to continue"),
         ),
         actions: <Widget>[
           TextButton(
