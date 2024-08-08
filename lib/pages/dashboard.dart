@@ -632,7 +632,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                               return Column(
                                                 children: [
                                                   Container(
-                                                    padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 20),
+                                                    padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 0),
                                                     child: Column(
                                                       children: [
                                                         Row(
@@ -640,7 +640,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureYesterday ms',
+                                                                  Text('$averageTemperatureYesterday bpm',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -655,7 +655,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureToday ms',
+                                                                  Text('$averageTemperatureToday bpm',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -670,7 +670,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                                             Expanded(
                                                               child: Column(
                                                                 children: [
-                                                                  Text('$averageTemperatureOverall ms',
+                                                                  Text('$averageTemperatureOverall bpm',
                                                                       style: TextStyle(
                                                                         fontSize: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 24 : 20,
                                                                         fontWeight: FontWeight.w700,
@@ -1038,7 +1038,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                               return Column(
                                                 children: [
                                                   Container(
-                                                    padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 20),
+                                                    padding: EdgeInsets.symmetric(horizontal: ResponsiveWidget.isLargeScreen(context) || ResponsiveWidget.isCustomSize(context) ? 40 : 0),
                                                     child: Column(
                                                       children: [
                                                         Row(

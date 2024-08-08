@@ -255,7 +255,7 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                             height: 25,
                           ),
                           const Text(
-                            "Welcome to the Pet Location Dashboard",
+                            "Welcome to the Map of Veterinarian",
                             style: TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 18),
                           ),
@@ -300,7 +300,7 @@ class _MapOfVeterinarianState extends State<MapOfVeterinarian> {
                                 constraints: const BoxConstraints(maxWidth: 280),
                                 child: const Text(
                                   maxLines: 2,
-                                  "This Icon shows the number of Veterinarian around you",
+                                  "This Icon shows the number fi around you",
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               )

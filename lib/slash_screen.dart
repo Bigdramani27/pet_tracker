@@ -44,7 +44,7 @@ class _SplashScreenState extends State<SplashScreen> {
               Image.asset('images/splash.jpg'),
               SizedBox(height: 20), // Add some spacing
               Text(
-                "Kelpet",
+                "KelPet",
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 40, 
@@ -52,12 +52,12 @@ class _SplashScreenState extends State<SplashScreen> {
                   shadows: [
                     Shadow(
                       offset: Offset(3.0, 3.0),
-                      color: Colors.black.withOpacity(0.3), 
+                      color: Colors.black.withOpacity(0.6), 
                       blurRadius: 6.0, 
                     ),
                     Shadow(
                       offset: Offset(-1.0, -1.0),
-                      color: Colors.black.withOpacity(0.3), 
+                      color: Colors.black.withOpacity(0.6), 
                       blurRadius: 3.0, 
                     ),
                   ],
